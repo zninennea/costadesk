@@ -1,0 +1,92 @@
+@import "tailwindcss";
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  
+  body {
+    @apply overflow-x-hidden;
+  }
+}
+
+@layer components {
+  .container {
+    @apply px-4 mx-auto;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-gray-100;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-gradient-to-b from-amber-500 to-orange-500 rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply from-amber-600 to-orange-600;
+}
+
+/* Custom animations */
+@keyframes bounce {
+  0%, 100% {
+    transform: translateY(-25%) translateX(-50%);
+    animation-timing-function: cubic-bezier(0.8, 0, 1, 1);
+  }
+  50% {
+    transform: translateY(0) translateX(-50%);
+    animation-timing-function: cubic-bezier(0, 0, 0.2, 1);
+  }
+}
+
+.animate-bounce {
+  animation: bounce 1s infinite;
+}
+
+/* React DatePicker custom styling */
+.react-datepicker {
+  font-family: inherit !important;
+  border: none !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1) !important;
+  border-radius: 1rem !important;
+  overflow: hidden !important;
+}
+
+.react-datepicker__header {
+  background: linear-gradient(135deg, #f59e0b, #ea580c) !important;
+  border-bottom: none !important;
+}
+
+.react-datepicker__current-month,
+.react-datepicker__day-name {
+  color: white !important;
+}
+
+.react-datepicker__day {
+  color: #374151 !important;
+}
+
+.react-datepicker__day:hover {
+  background-color: #fef3c7 !important;
+  border-radius: 50% !important;
+}
+
+.react-datepicker__day--selected {
+  background: linear-gradient(135deg, #f59e0b, #ea580c) !important;
+  color: white !important;
+  border-radius: 50% !important;
+}
+
+.react-datepicker__day--keyboard-selected {
+  background-color: #fef3c7 !important;
+}
+
+.react-datepicker__navigation-icon::before {
+  border-color: white !important;
+}
