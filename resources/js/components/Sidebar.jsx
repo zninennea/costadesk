@@ -1,14 +1,14 @@
 import { Link, useLocation } from 'react-router-dom'
-import { 
-  LayoutDashboard, Calendar, UserPlus, Users, FileText, 
-  AlertTriangle, CreditCard, Percent, FileBarChart, 
-  Settings, Home, Bed, Package, Archive, Activity, 
+import {
+  LayoutDashboard, Calendar, UserPlus, Users, FileText,
+  AlertTriangle, CreditCard, Percent, FileBarChart,
+  Settings, Home, Bed, Package, Archive, Activity,
   Shield, LogOut, CheckSquare, DollarSign, Clock
 } from 'lucide-react'
 
 function Sidebar({ role, onLogout }) {
   const location = useLocation()
-  
+
   const staffMenu = [
     { path: '/staff/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { path: '/staff/check-in', icon: Calendar, label: 'Check-in', badge: '5' },
@@ -46,7 +46,8 @@ function Sidebar({ role, onLogout }) {
   const resortName = "Costa Marina Beach Resort"
 
   return (
-    <aside className="w-72 bg-gradient-to-b from-gray-900 to-gray-800 text-white flex flex-col shadow-2xl">
+    <aside className="w-72 bg-neutral-800 text-white">
+
       {/* Logo Section */}
       <div className="p-6 border-b border-gray-700">
         <div className="flex items-center gap-3 mb-2">
@@ -69,11 +70,10 @@ function Sidebar({ role, onLogout }) {
           <Link
             key={idx}
             to={item.path}
-            className={`flex items-center justify-between px-6 py-3 mx-2 rounded-lg transition-all duration-300 ${
-              location.pathname === item.path
-                ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg'
-                : 'text-gray-300 hover:bg-gray-700 hover:text-white'
-            }`}
+            className={`flex items-center justify-between px-6 py-3 mx-2 rounded-lg transition-all duration-300 ${location.pathname === item.path
+              ? 'bg-primary-600 text-white shadow-lg'
+              : 'text-neutral-300 hover:bg-neutral-700 hover:text-white'
+              }`}
           >
             <div className="flex items-center gap-3">
               <item.icon size={20} />

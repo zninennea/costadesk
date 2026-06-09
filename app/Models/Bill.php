@@ -13,9 +13,29 @@ class Bill extends Model
         return $this->belongsTo(Booking::class);
     }
 
-    public function discount()
+    public function checkin()
     {
-        return $this->belongsTo(Discount::class);
+        return $this->belongsTo(Checkin::class);
+    }
+
+    public function guest()
+    {
+        return $this->belongsTo(Guest::class);
+    }
+
+    public function createdBy()
+    {
+        return $this->belongsTo(User::class, 'created_by_user_id');
+    }
+
+    public function billItems()
+    {
+        return $this->hasMany(BillItem::class);
+    }
+
+    public function billDiscounts()
+    {
+        return $this->hasMany(BillDiscount::class);
     }
 
     public function payments()
@@ -23,5 +43,3 @@ class Bill extends Model
         return $this->hasMany(Payment::class);
     }
 }
-
-

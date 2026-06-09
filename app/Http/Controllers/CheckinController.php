@@ -3,13 +3,15 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use App\Models\Guest;
 use App\Models\Booking;
 use App\Models\Checkin;
 use App\Models\Room;
 use App\Models\Bill;
+use App\Models\Guest;
+use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Carbon\Carbon;
 
 class CheckinController extends Controller
 {
@@ -28,7 +30,6 @@ class CheckinController extends Controller
         try {
             DB::beginTransaction();
 
-            // 1. Create or Find Guest
             $guest = Guest::create([
                 'first_name' => $validated['first_name'],
                 'last_name' => $validated['last_name'],
@@ -38,17 +39,13 @@ class CheckinController extends Controller
 
             $room = Room::findOrFail($validated['room_id']);
             
-            // Calculate nights
             $checkInDate = now();
-            $checkOutDate = \Carbon\Carbon::parse($validated['check_out']);
-            $nights = $checkInDate->startOfDay()->diffInDays($checkOutDate->startOfDay());
-            $nights = $nights > 0 ? $nights : 1;
+            $checkOutDate = Carbon::parse($validated['check_out']);
+            $nights = max(1, $checkInDate->startOfDay()->diffInDays($checkOutDate->startOfDay()));
             
-            // Base room price
             $roomPrice = $room->price ?? $room->category->base_price;
             $totalRoomCharge = $roomPrice * $nights;
 
-            // 2. Create Booking
             $booking = Booking::create([
                 'booking_code' => 'WLK-' . strtoupper(uniqid()),
                 'user_id' => $request->user()->id,
@@ -63,10 +60,8 @@ class CheckinController extends Controller
                 'is_walk_in' => true
             ]);
 
-            // 3. Update Room Status
             $room->update(['status' => 'occupied']);
 
-            // 4. Create Checkin Record
             $checkin = Checkin::create([
                 'booking_id' => $booking->id,
                 'guest_id' => $guest->id,
@@ -77,7 +72,6 @@ class CheckinController extends Controller
                 'status' => 'active'
             ]);
 
-            // 5. Generate Bill
             $bill = Bill::create([
                 'bill_number' => 'INV-' . date('Ymd') . '-' . rand(1000, 9999),
                 'checkin_id' => $checkin->id,
@@ -103,62 +97,103 @@ class CheckinController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Walk-in error: ' . $e->getMessage());
-            return response()->json(['error' => 'Failed to process walk-in'], 500);
+            return response()->json(['error' => 'Failed to process walk-in: ' . $e->getMessage()], 500);
         }
     }
 
     public function processCheckin(Request $request, $booking_id)
-    {
-        try {
-            DB::beginTransaction();
+{
+    try {
+        DB::beginTransaction();
 
-            $booking = Booking::findOrFail($booking_id);
-            
-            if ($booking->status !== 'confirmed') {
-                return response()->json(['error' => 'Booking must be confirmed before check-in'], 400);
-            }
+        Log::info('Check-in request for booking ID: ' . $booking_id);
 
-            $room = $booking->room;
-            $room->update(['status' => 'occupied']);
-
-            $booking->update(['status' => 'checked_in']);
-
-            $checkin = Checkin::create([
-                'booking_id' => $booking->id,
-                'guest_id' => $booking->guest_id, // assuming guest_id is set
-                'room_id' => $room->id,
-                'user_id' => $request->user()->id,
-                'checkin_datetime' => now(),
-                'expected_checkout_datetime' => \Carbon\Carbon::parse($booking->check_out)->endOfDay(),
-                'status' => 'active'
-            ]);
-
-            // Generate Bill
-            $bill = Bill::create([
-                'bill_number' => 'INV-' . date('Ymd') . '-' . rand(1000, 9999),
-                'checkin_id' => $checkin->id,
-                'booking_id' => $booking->id,
-                'guest_id' => $booking->guest_id,
-                'created_by_user_id' => $request->user()->id,
-                'room_charge' => $booking->total_price,
-                'subtotal' => $booking->total_price,
-                'total_amount' => $booking->total_price,
-                'balance_due' => $booking->total_price - ($booking->payment_status === 'paid' ? $booking->total_price : 0),
-                'status' => 'issued'
-            ]);
-
-            DB::commit();
-
-            return response()->json([
-                'message' => 'Check-in successful',
-                'checkin' => $checkin,
-                'bill' => $bill
-            ]);
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-            Log::error('Check-in error: ' . $e->getMessage());
-            return response()->json(['error' => 'Failed to process check-in'], 500);
+        $booking = Booking::find($booking_id);
+        
+        if (!$booking) {
+            Log::error('Booking not found: ' . $booking_id);
+            return response()->json(['error' => 'Booking not found'], 404);
         }
+
+        if ($booking->status === 'checked_in') {
+            return response()->json(['error' => 'Guest is already checked in'], 400);
+        }
+
+        $room = Room::find($booking->room_id);
+        if (!$room) {
+            return response()->json(['error' => 'Room not found'], 404);
+        }
+
+        // If guest_id is null, create a guest from the user
+        if (!$booking->guest_id && $booking->user_id) {
+            $user = User::find($booking->user_id);
+            if ($user) {
+                $guest = Guest::create([
+                    'first_name' => $user->first_name,
+                    'last_name' => $user->last_name,
+                    'email' => $user->email,
+                    'mobile' => $user->phone ?? 'N/A',
+                    'city' => 'N/A',
+                    'country' => 'Philippines'
+                ]);
+                $booking->guest_id = $guest->id;
+                $booking->save();
+            }
+        }
+
+        // Update room status
+        $room->update(['status' => 'occupied']);
+        
+        // Update booking status
+        $booking->update(['status' => 'checked_in']);
+        
+        // Create check-in record
+        $checkin = Checkin::create([
+            'booking_id' => $booking->id,
+            'guest_id' => $booking->guest_id,
+            'room_id' => $room->id,
+            'user_id' => $request->user()->id,
+            'checkin_datetime' => now(),
+            'expected_checkout_datetime' => Carbon::parse($booking->check_out)->endOfDay(),
+            'status' => 'active'
+        ]);
+        
+        // Calculate nights and total
+        $checkInDate = Carbon::parse($booking->check_in);
+        $checkOutDate = Carbon::parse($booking->check_out);
+        $nights = max(1, $checkInDate->diffInDays($checkOutDate));
+        $roomPrice = $room->price ?? ($room->category->base_price ?? 4800);
+        $totalRoomCharge = $roomPrice * $nights;
+        
+        // CREATE BILL - ALWAYS
+        $bill = Bill::create([
+            'bill_number' => 'INV-' . date('Ymd') . '-' . str_pad($booking->id, 4, '0', STR_PAD_LEFT),
+            'checkin_id' => $checkin->id,
+            'booking_id' => $booking->id,
+            'guest_id' => $booking->guest_id,
+            'created_by_user_id' => $request->user()->id,
+            'room_charge' => $totalRoomCharge,
+            'subtotal' => $totalRoomCharge,
+            'total_amount' => $totalRoomCharge,
+            'balance_due' => $totalRoomCharge,
+            'status' => 'issued'
+        ]);
+        
+        DB::commit();
+
+        Log::info('Check-in successful for booking: ' . $booking_id . ', Bill ID: ' . $bill->id);
+
+        return response()->json([
+            'message' => 'Check-in successful',
+            'checkin' => $checkin,
+            'bill' => $bill,
+            'booking' => $booking
+        ]);
+        
+    } catch (\Exception $e) {
+        DB::rollBack();
+        Log::error('Check-in error: ' . $e->getMessage() . ' at ' . $e->getFile() . ':' . $e->getLine());
+        return response()->json(['error' => 'Failed to process check-in: ' . $e->getMessage()], 500);
     }
+}
 }

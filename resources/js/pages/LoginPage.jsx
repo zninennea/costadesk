@@ -83,7 +83,7 @@ function LoginPage() {
       {/* Left Side - Branding with Image Placeholder */}
       <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden">
         {/* Background Image Placeholder */}
-        <div className="absolute inset-0 bg-gradient-to-br from-amber-900/80 to-orange-900/80 z-10"></div>
+        <div className="absolute inset-0 bg-primary/90 z-10"></div>
         <div className="absolute inset-0 bg-cover bg-center" 
              style={{ backgroundImage: 'url(https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1200)' }}>
           {/* REPLACE WITH YOUR ACTUAL RESORT IMAGE */}
@@ -100,7 +100,7 @@ function LoginPage() {
           </div>
           
           <div className="space-y-4 max-w-md">
-            <div className="w-24 h-1 bg-amber-400 mx-auto rounded-full"></div>
+            <div className="w-24 h-1 bg-secondary mx-auto rounded-full"></div>
             <p className="text-white/90 text-lg">
               "Your premier beach resort destination in Samal Island"
             </p>
@@ -114,11 +114,11 @@ function LoginPage() {
       </div>
 
       {/* Right Side - Login Form */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-gradient-to-b from-amber-50 to-white">
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-bg-base">
         <div className="max-w-md w-full">
           {/* Mobile Logo */}
           <div className="lg:hidden text-center mb-8">
-            <div className="w-20 h-20 mx-auto mb-3 bg-gradient-to-br from-amber-500 to-orange-500 rounded-2xl flex items-center justify-center shadow-lg">
+            <div className="w-20 h-20 mx-auto mb-3 bg-primary text-white rounded-2xl flex items-center justify-center shadow-lg">
               <span className="text-3xl">🌊</span>
             </div>
             <h2 className="text-2xl font-bold text-gray-800">Welcome Back!</h2>
@@ -127,7 +127,7 @@ function LoginPage() {
 
           {/* Desktop Title */}
           <div className="hidden lg:block mb-8">
-            <h2 className="text-3xl font-bold bg-gradient-to-r from-amber-600 to-orange-600 bg-clip-text text-transparent">
+            <h2 className="text-3xl font-bold text-primary">
               Welcome Back
             </h2>
             <p className="text-gray-500 mt-2">Please sign in to your account</p>
@@ -152,7 +152,7 @@ function LoginPage() {
                   value={loginData.emailOrUsername}
                   onChange={handleInputChange}
                   required
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all outline-none"
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all outline-none"
                   placeholder="Enter your email or username"
                 />
               </div>
@@ -168,7 +168,7 @@ function LoginPage() {
                   value={loginData.password}
                   onChange={handleInputChange}
                   required
-                  className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all outline-none"
+                  className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all outline-none"
                   placeholder="Enter your password"
                 />
                 <button
@@ -183,10 +183,10 @@ function LoginPage() {
 
             <div className="flex items-center justify-between">
               <label className="flex items-center gap-2">
-                <input type="checkbox" className="w-4 h-4 text-amber-500 rounded focus:ring-amber-500" />
+                <input type="checkbox" className="w-4 h-4 text-primary rounded focus:ring-primary" />
                 <span className="text-sm text-gray-600">Remember me</span>
               </label>
-              <a href="#" className="text-sm text-amber-600 hover:text-amber-700 hover:underline">
+              <a href="#" className="text-sm text-primary hover:text-primary-light hover:underline">
                 Forgot password?
               </a>
             </div>
@@ -194,7 +194,7 @@ function LoginPage() {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full py-3 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-lg font-semibold hover:shadow-lg hover:scale-105 transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+              className="w-full py-3 bg-primary text-white rounded-lg font-semibold hover:shadow-lg hover:bg-primary-light transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
             >
               {isLoading ? (
                 <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
@@ -210,14 +210,14 @@ function LoginPage() {
           <div className="mt-6 text-center">
             <p className="text-gray-600">
               Don't have an account yet?{' '}
-              <Link to="/register" className="text-amber-600 font-semibold hover:text-amber-700 hover:underline">
+              <Link to="/register" className="text-primary font-semibold hover:text-primary-light hover:underline">
                 Create one
               </Link>
             </p>
           </div>
 
           {/* Demo Credentials */}
-          <div className="mt-8 p-4 bg-amber-50 rounded-lg">
+          <div className="mt-8 p-4 bg-white shadow-sm border border-gray-100 rounded-lg">
             <p className="text-sm text-gray-600 text-center font-semibold mb-2">Demo Credentials:</p>
             <div className="space-y-1 text-sm">
               <p className="text-gray-600">👤 <span className="font-medium">Guest:</span> guest@costadesk.com / password</p>

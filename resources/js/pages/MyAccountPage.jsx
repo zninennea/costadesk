@@ -44,16 +44,16 @@ function MyAccount() {
     const storedUser = JSON.parse(localStorage.getItem('user') || '{}')
     setUserData({
       id: storedUser.id || '1',
-      firstName: storedUser.firstName || 'Maria',
-      lastName: storedUser.lastName || 'Santos',
-      email: storedUser.email || 'maria.santos@costamarina.com',
-      username: storedUser.username || 'maria.santos',
-      role: storedUser.role || 'staff',
-      phone: storedUser.phone || '+63 912 345 6789',
-      address: storedUser.address || '123 Beach Road',
-      city: storedUser.city || 'Samal City',
-      hireDate: storedUser.hireDate || '2024-01-15',
-      department: storedUser.department || 'Front Desk'
+      firstName: storedUser.first_name || storedUser.firstName || 'Guest',
+      lastName: storedUser.last_name || storedUser.lastName || 'User',
+      email: storedUser.email || 'guest@costamarina.com',
+      username: storedUser.username || 'guest',
+      role: storedUser.role || 'guest',
+      phone: storedUser.phone || 'N/A',
+      address: storedUser.address || 'N/A',
+      city: storedUser.city || 'N/A',
+      hireDate: storedUser.hireDate || 'N/A',
+      department: storedUser.department || 'N/A'
     })
     
     // Load avatar from localStorage
@@ -160,11 +160,12 @@ function MyAccount() {
 
   const getRoleBadge = () => {
     const roles = {
+      guest: { color: 'bg-green-100 text-green-700', label: 'Guest' },
       staff: { color: 'bg-blue-100 text-blue-700', label: 'Front Desk Staff' },
       manager: { color: 'bg-purple-100 text-purple-700', label: 'Resort Manager' },
       admin: { color: 'bg-amber-100 text-amber-700', label: 'System Administrator' }
     }
-    return roles[userData.role] || roles.staff
+    return roles[userData.role] || roles.guest
   }
 
   const roleBadge = getRoleBadge()
@@ -173,7 +174,18 @@ function MyAccount() {
     <div className="min-h-screen bg-gradient-to-b from-amber-50 to-white">
       <div className="container mx-auto max-w-5xl px-4 py-12 pt-24">
         {/* Header */}
-        <div className="text-center mb-8">
+        <div className="relative text-center mb-8">
+          <button 
+            onClick={() => {
+              if (userData.role === 'staff') navigate('/staff/dashboard');
+              else if (userData.role === 'manager') navigate('/manager/dashboard');
+              else if (userData.role === 'admin') navigate('/admin/dashboard');
+              else navigate('/');
+            }}
+            className="absolute left-0 top-1/2 -translate-y-1/2 p-2 hover:bg-amber-100 text-amber-600 rounded-lg transition-colors font-medium flex items-center gap-2"
+          >
+            <span className="text-xl">←</span> Back
+          </button>
           <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-amber-600 to-orange-600 bg-clip-text text-transparent">
             My Account
           </h1>
@@ -232,14 +244,18 @@ function MyAccount() {
                     <Phone size={14} />
                     <span>{userData.phone}</span>
                   </div>
-                  <div className="flex items-center gap-2 text-gray-600">
-                    <Building size={14} />
-                    <span>{userData.department}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-gray-600">
-                    <Calendar size={14} />
-                    <span>Hired: {userData.hireDate}</span>
-                  </div>
+                  {userData.role !== 'guest' && (
+                    <>
+                      <div className="flex items-center gap-2 text-gray-600">
+                        <Building size={14} />
+                        <span>{userData.department}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-gray-600">
+                        <Calendar size={14} />
+                        <span>Hired: {userData.hireDate}</span>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
             </div>

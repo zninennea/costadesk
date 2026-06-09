@@ -1,773 +1,444 @@
 import { useState, useEffect } from 'react'
-import { 
-  LayoutDashboard, Users, Calendar, Clock, LogOut, User, Settings, 
-  CheckCircle, XCircle, Home, Plus, Receipt, FileText, AlertCircle,
-  Activity, Search, Filter, X, Eye, Edit, Trash2,
-  Bell, UserCheck, UserX, DoorOpen, ClipboardList, BookOpen,
-  Phone, Mail, MapPin, Calendar as CalendarIcon, DollarSign,
-  Printer, Download, ChevronDown, ChevronUp, MoreVertical
+import {
+  LayoutDashboard, Users, Calendar, Clock, LogOut, User, Settings,
+  CheckCircle, XCircle, Home, Plus, Receipt, AlertCircle,
+  Activity, Search, X, Eye, Edit, Trash2, Bell, UserCheck, UserX, BookOpen, Percent
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import api from '../../api'
+import WalkInModal from '../../components/WalkInModal'
+import ReservationModal from '../../components/ReservationModal'
 
 function StaffDashboard() {
   const navigate = useNavigate()
   const [currentTime, setCurrentTime] = useState(new Date())
   const [activeTab, setActiveTab] = useState('dashboard')
   const [showUserMenu, setShowUserMenu] = useState(false)
-  const [searchTerm, setSearchTerm] = useState('')
-  const [filterStatus, setFilterStatus] = useState('all')
-  const [selectedView, setSelectedView] = useState(null)
-  const [entriesPerPage, setEntriesPerPage] = useState(10)
-  const [currentPage, setCurrentPage] = useState(1)
-  const [expandedBooking, setExpandedBooking] = useState(null)
-  
+  const [showPaymentModal, setShowPaymentModal] = useState(false)
+  const [paymentAmount, setPaymentAmount] = useState('')
+  const [paymentMethod, setPaymentMethod] = useState('cash')
+  const [paymentReference, setPaymentReference] = useState('')
+
   // Modal states
   const [showCheckInModal, setShowCheckInModal] = useState(false)
   const [showCheckOutModal, setShowCheckOutModal] = useState(false)
   const [showWalkInModal, setShowWalkInModal] = useState(false)
-  const [showBillModal, setShowBillModal] = useState(false)
-  const [showHouseRulesModal, setShowHouseRulesModal] = useState(false)
-  const [showGuestDetailsModal, setShowGuestDetailsModal] = useState(false)
-  const [showChargeModal, setShowChargeModal] = useState(false)
+  const [showReservationModal, setShowReservationModal] = useState(false)
   const [showDiscountModal, setShowDiscountModal] = useState(false)
-  const [chargeAmount, setChargeAmount] = useState('')
   const [discountId, setDiscountId] = useState('')
+  const [discountNotes, setDiscountNotes] = useState('')
+
   const [selectedGuest, setSelectedGuest] = useState(null)
-  const [selectedRoom, setSelectedRoom] = useState(null)
-  const [selectedBooking, setSelectedBooking] = useState(null)
-
+  const [categoriesList, setCategoriesList] = useState([])
   const [userData, setUserData] = useState({})
-
-  const [walkInForm, setWalkInForm] = useState({
-    firstName: '',
-    lastName: '',
-    email: '',
-    phone: '',
-    roomType: '',
-    nights: 1,
-    guests: 1,
-    checkInDate: new Date().toISOString().split('T')[0],
-    specialRequests: ''
-  })
-  const [paymentMethod, setPaymentMethod] = useState('cash')
-  const [referenceNumber, setReferenceNumber] = useState('')
-  const [actualBill, setActualBill] = useState(null)
-  
-  const [houseRuleEntry, setHouseRuleEntry] = useState({
-    guestName: '',
-    room: '',
-    ruleViolated: '',
-    description: '',
-    actionTaken: ''
-  })
-
-  const [addOns, setAddOns] = useState([
-    { id: 1, name: 'Jet Ski Rental (30 min)', price: 1500, quantity: 0 },
-    { id: 2, name: 'Banana Boat Ride (15 min)', price: 500, quantity: 0 },
-    { id: 3, name: 'Extra Breakfast', price: 250, quantity: 0 },
-    { id: 4, name: 'Extra Towel', price: 50, quantity: 0 },
-    { id: 5, name: 'Extra Pillow/Blanket', price: 100, quantity: 0 },
-    { id: 6, name: 'Karaoke Rental (per hour)', price: 300, quantity: 0 }
-  ])
+  const [guestsList, setGuestsList] = useState([])
+  const [roomsList, setRoomsList] = useState([])
+  const [bookingsList, setBookingsList] = useState([])
 
   const [dashboardData, setDashboardData] = useState({
-    arrivalsToday: { total: 0, checkedIn: 0, list: [] },
-    departuresToday: { total: 0, pending: 0, list: [] },
-    guestsOnProperty: 0,
-    roomsOccupied: 0,
-    totalRooms: 0,
-    roomStatus: [],
     incomingArrivals: [],
+    currentGuests: [],
     pendingCheckouts: [],
-    notifications: [],
-    reservations: [],
-    allGuests: [],
     roomsList: [],
-    houseRulesLogs: []
-  });
+    roomStatus: []
+  })
 
-  const fetchData = async () => {
-    try {
-      const statsRes = await api.get('/reports/dashboard-stats');
-      const bookingsRes = await api.get('/bookings');
-      const roomsRes = await api.get('/rooms');
-
-      const bookings = bookingsRes.data;
-      const rooms = roomsRes.data;
-      const stats = statsRes.data;
-
-      const today = new Date().toISOString().split('T')[0];
-      const incoming = bookings.filter(b => b.status === 'pending');
-      const checkouts = bookings.filter(b => b.status === 'checked_in' && b.check_out <= today);
-      const checkedIn = bookings.filter(b => b.status === 'checked_in');
-
-      setDashboardData({
-        arrivalsToday: { total: incoming.length, checkedIn: 0, list: incoming.map(b => ({ id: b.id, name: b.user ? b.user.first_name + ' ' + b.user.last_name : 'Guest ' + b.id, room: b.room?.room_number, roomId: b.room_id, guests: 1, time: b.check_in, status: b.status, bookingRef: b.id, phone: b.user?.phone || 'N/A', email: b.user?.email })) },
-        departuresToday: { total: checkouts.length, pending: checkouts.length, list: checkouts.map(b => ({ id: b.id, name: b.user ? b.user.first_name + ' ' + b.user.last_name : 'Guest ' + b.id, room: b.room?.room_number, roomId: b.room_id, dueTime: "12:00 PM", status: "pending", bill: b.total_price })) },
-        guestsOnProperty: checkedIn.length,
-        roomsOccupied: stats.occupancy.occupied,
-        totalRooms: stats.occupancy.total,
-        roomStatus: rooms.map(r => {
-           let guestName = null;
-           let guestId = null;
-           let chkIn = null;
-           let chkOut = null;
-           if(r.status === 'occupied') {
-             const b = bookings.find(bk => bk.room_id === r.id && bk.status === 'checked_in');
-             if (b) {
-                guestName = b.user ? b.user.first_name + ' ' + b.user.last_name : 'Guest ' + b.id;
-                guestId = b.id;
-                chkIn = b.check_in;
-                chkOut = b.check_out;
-             }
-           }
-           return { id: r.id, name: "Room " + r.room_number, status: r.status, type: r.category?.name, guest: guestName, guestId: guestId, checkIn: chkIn, checkOut: chkOut };
-        }),
-        incomingArrivals: incoming.map(b => ({ id: b.id, name: b.user ? b.user.first_name + ' ' + b.user.last_name : 'Guest ' + b.id, room: b.room?.room_number, roomId: b.room_id, guests: 1, time: "3:00 PM", status: b.status, bookingRef: b.id, phone: b.user?.phone || 'N/A', email: b.user?.email })),
-        pendingCheckouts: checkouts.map(b => ({ id: b.id, name: b.user ? b.user.first_name + ' ' + b.user.last_name : 'Guest ' + b.id, room: b.room?.room_number, roomId: b.room_id, dueTime: "12:00 PM", status: "pending", bill: b.total_price })),
-        notifications: [],
-        reservations: bookings.map(b => ({ id: b.id, bookingRef: b.id, code: "CMB-"+b.id, guest: b.user ? b.user.first_name + ' ' + b.user.last_name : 'Guest ' + b.id, checkIn: b.check_in, checkOut: b.check_out, status: b.status, room: b.room?.room_number, guests: 1, amount: b.total_price })),
-        allGuests: checkedIn.map(b => ({ id: b.id, name: b.user ? b.user.first_name + ' ' + b.user.last_name : 'Guest ' + b.id, room: b.room?.room_number, status: b.status, checkIn: b.check_in, checkOut: b.check_out, phone: b.user?.phone || 'N/A', email: b.user?.email, bookingRef: b.id })),
-        roomsList: rooms.map(r => ({ id: r.id, name: "Room " + r.room_number, status: r.status, type: r.category?.name, price: r.category?.base_price, capacity: r.category?.capacity })),
-        houseRulesLogs: []
-      });
-      
-      const logsRes = await api.get('/reports/activity-logs').catch(()=>({data:[]}));
-      setDashboardData(prev => ({
-        ...prev,
-        houseRulesLogs: logsRes.data
-      }));
-      
-      const addonsRes = await api.get('/addons').catch(()=>null);
-      if (addonsRes && addonsRes.data) {
-        setAddOns(addonsRes.data.filter(a => a.addon_code !== 'CUSTOM').map(a => ({
-          id: a.id,
-          name: a.addon_name,
-          price: a.price,
-          quantity: 0
-        })));
-      }
-    } catch (e) { console.error(e); }
-  };
-
+  // Time update
   useEffect(() => {
-    const user = JSON.parse(localStorage.getItem('user') || '{}')
-    setUserData(user)
-    fetchData();
     const timer = setInterval(() => setCurrentTime(new Date()), 1000)
     return () => clearInterval(timer)
   }, [])
 
-  // Removed mock data array setup
-  const mockDataPlaceholder = {
-    arrivalsToday: { total: 8, checkedIn: 3, list: [
-      { id: 1, name: "Santos, Maria", room: "Cottage B", roomId: 2, guests: 2, time: "3:00 PM", status: "pending", bookingRef: "BK-001", phone: "09123456789", email: "maria@email.com" },
-      { id: 2, name: "Reyes, Juan", room: "Dormitory 1", roomId: 7, guests: 6, time: "3:00 PM", status: "checked_in", bookingRef: "BK-002", phone: "09123456780", email: "juan@email.com" },
-      { id: 3, name: "Dela Cruz, Ana", room: "Cottage A", roomId: 1, guests: 4, time: "Day tour", status: "checked_in", bookingRef: "BK-003", phone: "09123456781", email: "ana@email.com" }
-    ] },
-    departuresToday: { total: 5, pending: 2, list: [
-      { id: 1, name: "Lim, Carlos", room: "Cottage C", roomId: 3, dueTime: "12:00 PM", status: "overdue", bill: 4800 },
-      { id: 2, name: "Garcia, Rosa", room: "Cottage D", roomId: 4, dueTime: "12:00 PM", status: "pending", bill: 5500 },
-      { id: 3, name: "Fernandez, Mike", room: "Cottage E", roomId: 5, dueTime: "1:00 PM", status: "pending", bill: 4800 }
-    ] },
-    guestsOnProperty: 24,
-    roomsOccupied: 7,
-    totalRooms: 12,
-    roomStatus: [
-      { id: 1, name: "Cottage A", status: "occupied", type: "cottage", guest: "Dela Cruz, Ana", guestId: 3, checkIn: "May 10, 2026", checkOut: "May 12, 2026", phone: "09123456781" },
-      { id: 2, name: "Cottage B", status: "available", type: "cottage", guest: null },
-      { id: 3, name: "Cottage C", status: "occupied", type: "cottage", guest: "Lim, Carlos", guestId: 4, checkIn: "May 9, 2026", checkOut: "May 11, 2026", phone: "09123456782" },
-      { id: 4, name: "Cottage D", status: "occupied", type: "cottage", guest: "Garcia, Rosa", guestId: 5, checkIn: "May 10, 2026", checkOut: "May 11, 2026", phone: "09123456783" },
-      { id: 5, name: "Cottage E", status: "available", type: "cottage", guest: null },
-      { id: 6, name: "Cottage F", status: "maintenance", type: "cottage", guest: null },
-      { id: 7, name: "Dormitory 1", status: "occupied", type: "dormitory", guest: "Reyes, Juan", guestId: 2, checkIn: "May 10, 2026", checkOut: "May 11, 2026", phone: "09123456780" },
-      { id: 8, name: "Dormitory 2", status: "available", type: "dormitory", guest: null },
-      { id: 9, name: "Villa Rosario", status: "available", type: "villa", guest: null },
-      { id: 10, name: "Casa Maria", status: "occupied", type: "single", guest: "Santos, Maria", guestId: 1, checkIn: "May 11, 2026", checkOut: "May 12, 2026", phone: "09123456789" }
-    ],
-    incomingArrivals: [
-      { id: 1, name: "Santos, Maria", room: "Cottage B", roomId: 2, guests: 2, time: "3:00 PM", status: "pending", bookingRef: "BK-001", phone: "09123456789", email: "maria@email.com" },
-      { id: 2, name: "Reyes, Juan", room: "Dormitory 1", roomId: 7, guests: 6, time: "3:00 PM", status: "checked_in", bookingRef: "BK-002", phone: "09123456780", email: "juan@email.com" },
-      { id: 3, name: "Dela Cruz, Ana", room: "Cottage A", roomId: 1, guests: 4, time: "Day tour", status: "checked_in", bookingRef: "BK-003", phone: "09123456781", email: "ana@email.com" }
-    ],
-    pendingCheckouts: [
-      { id: 1, name: "Lim, Carlos", room: "Cottage C", roomId: 3, dueTime: "12:00 PM", status: "overdue", bill: 4800 },
-      { id: 2, name: "Garcia, Rosa", room: "Cottage D", roomId: 4, dueTime: "12:00 PM", status: "pending", bill: 5500 },
-      { id: 3, name: "Fernandez, Mike", room: "Cottage E", roomId: 5, dueTime: "1:00 PM", status: "pending", bill: 4800 }
-    ],
-    notifications: [
-      { id: 1, text: "Lim, Carlos — checkout overdue", type: "urgent", time: "5 min ago", read: false },
-      { id: 2, text: "Online booking #042 needs confirmation", type: "warning", time: "15 min ago", read: false },
-      { id: 3, text: "Cottage D inspection complete", type: "info", time: "1 hour ago", read: true }
-    ],
-    reservations: [
-      { id: 1, bookingRef: "BK-001", code: "CMB-2026-001", guest: "Santos, Maria", checkIn: "2026-05-11", checkOut: "2026-05-12", status: "pending", room: "Cottage B", guests: 2, amount: 4800 },
-      { id: 2, bookingRef: "BK-002", code: "CMB-2026-002", guest: "Reyes, Juan", checkIn: "2026-05-10", checkOut: "2026-05-11", status: "checked_in", room: "Dormitory 1", guests: 6, amount: 13000 },
-      { id: 3, bookingRef: "BK-003", code: "CMB-2026-003", guest: "Dela Cruz, Ana", checkIn: "2026-05-10", checkOut: "2026-05-12", status: "checked_in", room: "Cottage A", guests: 4, amount: 9600 },
-      { id: 4, bookingRef: "BK-004", code: "CMB-2026-004", guest: "Lim, Carlos", checkIn: "2026-05-09", checkOut: "2026-05-11", status: "due_out", room: "Cottage C", guests: 4, amount: 9600 }
-    ],
-    allGuests: [
-      { id: 1, name: "Santos, Maria", room: "Cottage B", status: "pending", checkIn: "May 11, 2026", checkOut: "May 12, 2026", phone: "09123456789", email: "maria@email.com", bookingRef: "BK-001" },
-      { id: 2, name: "Reyes, Juan", room: "Dormitory 1", status: "checked_in", checkIn: "May 10, 2026", checkOut: "May 11, 2026", phone: "09123456780", email: "juan@email.com", bookingRef: "BK-002" },
-      { id: 3, name: "Dela Cruz, Ana", room: "Cottage A", status: "checked_in", checkIn: "May 10, 2026", checkOut: "May 12, 2026", phone: "09123456781", email: "ana@email.com", bookingRef: "BK-003" },
-      { id: 4, name: "Lim, Carlos", room: "Cottage C", status: "due_out", checkIn: "May 9, 2026", checkOut: "May 11, 2026", phone: "09123456782", email: "carlos@email.com", bookingRef: "BK-004" }
-    ],
-    roomsList: [
-      { id: 1, name: "Cottage A", status: "occupied", type: "cottage", price: 4800, capacity: 4 },
-      { id: 2, name: "Cottage B", status: "available", type: "cottage", price: 4800, capacity: 4 },
-      { id: 3, name: "Cottage C", status: "occupied", type: "cottage", price: 4800, capacity: 4 },
-      { id: 4, name: "Cottage D", status: "occupied", type: "cottage", price: 5500, capacity: 5 },
-      { id: 5, name: "Cottage E", status: "available", type: "cottage", price: 4800, capacity: 4 },
-      { id: 6, name: "Cottage F", status: "maintenance", type: "cottage", price: 4800, capacity: 4 },
-      { id: 7, name: "Dormitory 1", status: "occupied", type: "dormitory", price: 13000, capacity: 10 },
-      { id: 8, name: "Dormitory 2", status: "available", type: "dormitory", price: 13000, capacity: 10 },
-      { id: 9, name: "Villa Rosario", status: "available", type: "villa", price: 20000, capacity: 10 },
-      { id: 10, name: "Casa Maria", status: "occupied", type: "single", price: 4800, capacity: 4 }
-    ],
-    };
-  // End of data replacement
+  // Load user data
+  useEffect(() => {
+    const user = JSON.parse(localStorage.getItem('user') || '{}')
+    setUserData(user)
+    fetchData()
+  }, [])
+
+  const fetchData = async () => {
+    try {
+      const bookingsRes = await api.get('/bookings')
+      const roomsRes = await api.get('/rooms')
+      const categoriesRes = await api.get('/rooms/categories').catch(() => ({ data: [] }))
+      const guestsRes = await api.get('/guests').catch(() => ({ data: [] }))
+
+      const bookings = bookingsRes.data || []
+      const rooms = roomsRes.data || []
+
+      setRoomsList(rooms)
+      setBookingsList(bookings)
+      setGuestsList(guestsRes.data || [])
+      setCategoriesList(categoriesRes.data || [])
+
+      const today = new Date().toISOString().split('T')[0]
+
+      const getGuestName = (booking) => {
+        if (booking.user?.first_name) return `${booking.user.first_name} ${booking.user.last_name}`
+        if (booking.guest?.first_name) return `${booking.guest.first_name} ${booking.guest.last_name}`
+        return `Guest ${booking.id}`
+      }
+
+      const incomingArrivals = bookings
+        .filter(b => (b.status === 'pending' || b.status === 'confirmed') && b.status !== 'checked_in')
+        .map(b => ({
+          id: b.id,
+          name: getGuestName(b),
+          room: b.room?.room_number || 'TBD',
+          roomId: b.room_id,
+          guests: b.number_of_adults || 1,
+          checkIn: b.check_in,
+          checkOut: b.check_out,
+          status: b.status,
+          bookingRef: b.id
+        }))
+
+      const currentGuests = bookings
+        .filter(b => b.status === 'checked_in')
+        .map(b => ({
+          id: b.id,
+          name: getGuestName(b),
+          room: b.room?.room_number || 'TBD',
+          roomId: b.room_id,
+          guests: b.number_of_adults || 1,
+          checkIn: b.check_in,
+          checkOut: b.check_out,
+          status: b.status,
+          bookingRef: b.id,
+          bill: b.total_price || 0
+        }))
+
+      const pendingCheckouts = bookings
+        .filter(b => b.status === 'checked_in' && b.check_out <= today)
+        .map(b => ({
+          id: b.id,
+          name: getGuestName(b),
+          room: b.room?.room_number || 'TBD',
+          roomId: b.room_id,
+          dueTime: "12:00 PM",
+          status: b.check_out < today ? 'overdue' : 'pending',
+          bookingRef: b.id,
+          bill: b.total_price || 0
+        }))
+
+      const roomStatus = rooms.map(r => ({
+        id: r.id,
+        name: r.name || `Room ${r.room_number}`,
+        room_number: r.room_number,
+        status: r.status,
+        type: r.category?.name
+      }))
+
+      setDashboardData({
+        incomingArrivals,
+        currentGuests,
+        pendingCheckouts,
+        roomsList: rooms.map(r => ({
+          id: r.id,
+          name: r.name || `Room ${r.room_number}`,
+          room_number: r.room_number,
+          status: r.status,
+          type: r.category?.name,
+          price: r.price || r.category?.base_price,
+          capacity: r.capacity || r.category?.capacity
+        })),
+        roomStatus
+      })
+
+    } catch (e) {
+      console.error('Error fetching data:', e)
+    }
+  }
 
   const handleLogout = () => {
     localStorage.removeItem('user')
     localStorage.removeItem('userRole')
+    localStorage.removeItem('token')
     navigate('/login')
   }
 
-  const dismissNotification = (id) => {
-    setDashboardData(prev => ({
-      ...prev,
-      notifications: prev.notifications.filter(n => n.id !== id)
-    }))
-  }
-
-  const handleCheckIn = (guest) => {
-    setSelectedGuest(guest)
-    setShowCheckInModal(true)
-  }
-
-  const handleCheckOut = async (guest) => {
-    setSelectedGuest(guest)
-    setPaymentMethod('cash')
-    setReferenceNumber('')
-    try {
-      const billsRes = await api.get(`/bills/${guest.bookingRef}`).catch(()=>null);
-      if (billsRes && billsRes.data) {
-        setActualBill(billsRes.data);
-      }
-    } catch(e) {}
-    setShowCheckOutModal(true)
-  }
-
   const handleCompleteCheckIn = async () => {
-    if (selectedGuest) {
-      try {
-        await api.post(`/checkin/${selectedGuest.bookingRef}`);
-        await fetchData();
-        alert(`Checked in ${selectedGuest.name} successfully!`);
-        setShowCheckInModal(false);
-        setSelectedGuest(null);
-      } catch (e) {
-        alert(e.response?.data?.message || e.response?.data?.error || 'Error checking in');
+    if (!selectedGuest) {
+      alert("Please select a guest")
+      return
+    }
+
+    const bookingId = selectedGuest.id || selectedGuest.bookingRef
+
+    try {
+      await api.post(`/checkin/${bookingId}`)
+      alert(`Checked in ${selectedGuest.name} successfully!`)
+      setShowCheckInModal(false)
+      setSelectedGuest(null)
+      fetchData()
+    } catch (e) {
+      alert(e.response?.data?.error || "Error checking in")
+    }
+  }
+
+  const handleProcessPayment = async () => {
+    if (!selectedGuest) return
+
+    const amount = parseFloat(paymentAmount)
+    const billAmount = selectedGuest.bill || 0
+
+    if (isNaN(amount) || amount <= 0) {
+      alert("Please enter a valid payment amount")
+      return
+    }
+
+    if (amount > billAmount) {
+      alert(`Payment amount cannot exceed bill total of ₱${billAmount.toLocaleString()}`)
+      return
+    }
+
+    try {
+      // First, get the bill for this booking
+      const billsRes = await api.get(`/bookings/${selectedGuest.bookingRef}/bill`)
+
+      if (!billsRes || !billsRes.data) {
+        alert("No bill found. Please ensure the guest is checked in properly.")
+        return
       }
+
+      const bill = billsRes.data
+
+      // Process payment
+      const paymentRes = await api.post('/payments', {
+        bill_id: bill.id,
+        amount_paid: amount,
+        payment_method: paymentMethod,
+        reference_number: paymentReference || `${paymentMethod.toUpperCase()}-${Date.now()}`
+      })
+
+      const remaining = billAmount - amount
+      if (remaining <= 0) {
+        alert(`✓ Payment of ₱${amount.toLocaleString()} received! Bill is fully paid.`)
+      } else {
+        alert(`✓ Payment of ₱${amount.toLocaleString()} received! Remaining balance: ₱${remaining.toLocaleString()}`)
+      }
+
+      setShowPaymentModal(false)
+      setPaymentAmount('')
+      setPaymentReference('')
+      fetchData() // Refresh to update bill status
+    } catch (e) {
+      console.error("Payment error:", e)
+      const errorMsg = e.response?.data?.error || "Payment failed"
+      alert(errorMsg)
     }
   }
 
   const handleCompleteCheckOut = async () => {
-    if (selectedGuest) {
-      if (paymentMethod === 'gcash' && !referenceNumber) {
-        alert("Please enter a GCash Reference Number.");
-        return;
-      }
-      
-      try {
-        const billsRes = await api.get(`/bookings/${selectedGuest.bookingRef}/bill`).catch(()=>null);
-        if(billsRes && billsRes.data) {
-           let actualBill = billsRes.data;
-           
-           // Post any pending addons that the user selected in checkout modal
-           const selectedAddons = addOns.filter(a => a.quantity > 0);
-           for (const item of selectedAddons) {
-              await api.post(`/bills/${actualBill.id}/items`, {
-                 addon_id: item.id,
-                 quantity: item.quantity
-              });
-           }
-           
-           // Re-fetch bill if addons were added
-           if (selectedAddons.length > 0) {
-              const updatedBillsRes = await api.get(`/bookings/${selectedGuest.bookingRef}/bill`);
-              actualBill = updatedBillsRes.data;
-           }
+    if (!selectedGuest) return
 
-           if(actualBill.balance_due > 0) {
-             await api.post('/payments', {
-                bill_id: actualBill.id,
-                amount_paid: actualBill.balance_due,
-                payment_method: paymentMethod === 'credit_card' ? 'credit_card' : paymentMethod,
-                reference_number: paymentMethod === 'gcash' ? referenceNumber : 'CASH-' + Date.now()
-             });
-           }
+    const bookingId = selectedGuest.id || selectedGuest.bookingRef
+
+    try {
+      // Check if there's a bill and if it's fully paid
+      const billsRes = await api.get(`/bookings/${bookingId}/bill`).catch(() => null)
+
+      if (billsRes && billsRes.data) {
+        const bill = billsRes.data
+        if (bill.balance_due > 0) {
+          // Show payment modal instead
+          setShowPaymentModal(true)
+          return
         }
-        await api.post(`/checkout/${selectedGuest.bookingRef}`);
-        await fetchData();
-        
-        // Print Receipt
-        setTimeout(() => {
-          window.print();
-        }, 500);
-        
-        alert(`Checked out ${selectedGuest.name} successfully!`);
-        setShowCheckOutModal(false);
-        setSelectedGuest(null);
-        setActualBill(null);
-        setAddOns(addOns.map(a => ({ ...a, quantity: 0 })));
-      } catch (e) {
-        alert(e.response?.data?.message || e.response?.data?.error || 'Error checking out');
       }
+
+      // If no bill or bill is paid, proceed with checkout
+      await api.post(`/checkout/${bookingId}`)
+      alert(`Checked out ${selectedGuest.name} successfully!`)
+      setShowCheckOutModal(false)
+      setSelectedGuest(null)
+      fetchData()
+    } catch (e) {
+      console.error("Checkout error:", e)
+      alert(e.response?.data?.error || "Error checking out")
     }
   }
 
-  const handleRegisterWalkIn = async () => {
+  const handleRegisterWalkIn = async (data) => {
     try {
-      const availableRoom = dashboardData.roomsList.find(r => r.status === 'available' && r.type?.toLowerCase().includes(walkInForm.roomType?.toLowerCase() || ''));
-      const roomId = availableRoom ? availableRoom.id : dashboardData.roomsList.find(r => r.status === 'available')?.id;
-      
-      if (!roomId) {
-        alert("No available rooms found!");
-        return;
+      const availableRoom = dashboardData.roomsList.find(r => r.status === 'available')
+      if (!availableRoom) {
+        alert("No available rooms")
+        return
       }
 
       await api.post('/checkin/walk-in', {
-         first_name: walkInForm.firstName,
-         last_name: walkInForm.lastName,
-         mobile: walkInForm.phone || 'N/A',
-         city: 'N/A',
-         room_id: roomId,
-         check_out: new Date(new Date(walkInForm.checkInDate).getTime() + walkInForm.nights * 86400000).toISOString().split('T')[0],
-         number_of_adults: walkInForm.guests
-      });
-      
-      await fetchData();
-      alert(`Walk-in guest ${walkInForm.firstName} ${walkInForm.lastName} registered successfully!`);
-      setShowWalkInModal(false);
-      setWalkInForm({
-        firstName: '', lastName: '', email: '', phone: '', roomType: '', nights: 1, guests: 1, checkInDate: new Date().toISOString().split('T')[0], specialRequests: ''
-      });
+        first_name: data.firstName,
+        last_name: data.lastName,
+        mobile: data.phone || 'N/A',
+        city: 'N/A',
+        room_id: availableRoom.id,
+        check_out: new Date(Date.now() + (data.nights || 1) * 86400000).toISOString().split('T')[0],
+        number_of_adults: data.guests || 1
+      })
+
+      alert(`Walk-in guest ${data.firstName} registered successfully!`)
+      setShowWalkInModal(false)
+      fetchData()
     } catch (e) {
-      alert(e.response?.data?.message || e.response?.data?.error || 'Error registering walk-in');
+      alert('Failed to register walk-in guest')
     }
   }
 
-  const handleAddHouseRule = async () => {
+  const handleSaveReservation = async (data) => {
     try {
-      const description = `Violation: ${houseRuleEntry.ruleViolated} | Guest: ${houseRuleEntry.guestName} | Room: ${houseRuleEntry.room} | Desc: ${houseRuleEntry.description} | Action: ${houseRuleEntry.actionTaken}`;
-      await api.post('/reports/log-activity', {
-        action: 'house_rule_violation',
-        description
-      });
-      alert('House rule violation logged successfully!')
-      fetchData();
-      setShowHouseRulesModal(false)
-      setHouseRuleEntry({ guestName: '', room: '', ruleViolated: '', description: '', actionTaken: '' })
-    } catch(e) {
-      alert('Failed to log violation');
+      await api.post('/bookings/manual-reserve', data)
+      alert("Reservation created!")
+      setShowReservationModal(false)
+      fetchData()
+    } catch (e) {
+      alert("Failed to create reservation")
     }
   }
 
-  const handleChargeToRoom = async () => {
-    if (selectedGuest && chargeAmount) {
-      try {
-        const billsRes = await api.get(`/bookings/${selectedGuest.bookingRef}/bill`).catch(()=>null);
-        if(billsRes && billsRes.data) {
-           const customAddon = await api.get('/addons').then(res => res.data.find(a => a.addon_code === 'CUSTOM'));
-           
-           if (!customAddon) {
-             alert('Custom Addon not configured in backend.');
-             return;
-           }
-
-           await api.post(`/bills/${billsRes.data.id}/items`, {
-             addon_id: customAddon.id,
-             quantity: 1,
-             custom_price: parseFloat(chargeAmount),
-             notes: 'Custom charge added at front desk'
-           });
-           alert(`Charged ₱${chargeAmount} to ${selectedGuest.name}'s room successfully!`);
-           setShowChargeModal(false);
-           setSelectedGuest(null);
-           setChargeAmount('');
-           fetchData();
-        } else {
-           alert("No bill found for this guest.");
-        }
-      } catch (e) {
-        alert('Failed to charge to room.');
-      }
+  const handleConfirmBooking = async (id) => {
+    try {
+      await api.put(`/bookings/${id}`, { status: 'confirmed' })
+      alert("Booking confirmed successfully.")
+      fetchData()
+    } catch (e) {
+      alert("Failed to confirm booking.")
     }
   }
 
-  const handleApplyDiscount = async () => {
-    if (selectedGuest && discountId) {
-      const pin = prompt("Enter Manager PIN to approve this discount:");
-      if (pin !== "1234") {
-        alert("Invalid Manager PIN. Discount approval failed.");
+  const handleCancelBooking = async (id) => {
+    if (!window.confirm("Are you sure you want to cancel this booking?")) return;
+    try {
+      await api.put(`/bookings/${id}`, { status: 'cancelled' })
+      alert("Booking cancelled successfully.")
+      fetchData()
+    } catch (e) {
+      alert("Failed to cancel booking.")
+    }
+  }
+
+  const handleApplyDiscountRequest = async () => {
+    if (!selectedGuest || !discountId) {
+      alert("Please select a guest and discount type.");
+      return;
+    }
+
+    try {
+      const bookingId = selectedGuest.id || selectedGuest.bookingRef;
+      const billRes = await api.get(`/bookings/${bookingId}/bill`);
+      
+      if (!billRes.data) {
+        alert("No active bill found for this checked-in guest.");
         return;
       }
-      
-      try {
-        const billsRes = await api.get(`/bookings/${selectedGuest.bookingRef}/bill`).catch(()=>null);
-        if (billsRes && billsRes.data) {
-           await api.post(`/bills/${billsRes.data.id}/discounts`, { 
-             discount_id: parseInt(discountId),
-             approval_notes: 'Approved by manager via PIN'
-           });
-        }
-        alert('Discount applied successfully with manager approval!');
-        setShowDiscountModal(false);
-        setSelectedGuest(null);
-        setDiscountId('');
-        fetchData();
-      } catch (e) {
-        alert('Failed to apply discount.');
-      }
+
+      const res = await api.post(`/bills/${billRes.data.id}/discounts`, {
+        discount_id: parseInt(discountId),
+        approval_notes: discountNotes
+      });
+
+      alert(res.data.message || "Discount request submitted successfully.");
+      setShowDiscountModal(false);
+      setSelectedGuest(null);
+      setDiscountId('');
+      setDiscountNotes('');
+      fetchData();
+    } catch (e) {
+      console.error(e);
+      alert(e.response?.data?.error || "Failed to submit discount request.");
     }
-  }
-
-  const handleRoomClick = (room) => {
-    setSelectedRoom(room)
-    if (room.status === 'occupied' && room.guest) {
-      const guest = dashboardData.allGuests.find(g => g.name === room.guest)
-      setSelectedGuest(guest)
-      setShowGuestDetailsModal(true)
-    }
-  }
-
-  const calculateTotalBill = () => {
-    const roomTotal = selectedGuest?.bill || 
-      dashboardData.roomsList.find(r => r.name === selectedGuest?.room)?.price || 4800
-    const addOnsTotal = addOns.reduce((sum, item) => sum + (item.price * item.quantity), 0)
-    return roomTotal + addOnsTotal
-  }
-
-  const updateAddOnQuantity = (id, quantity) => {
-    setAddOns(prev => prev.map(item => 
-      item.id === id ? { ...item, quantity: Math.max(0, quantity) } : item
-    ))
-  }
-
-  const getFilteredReservations = () => {
-    let filtered = dashboardData.reservations
-    
-    if (searchTerm) {
-      filtered = filtered.filter(res => 
-        res.guest.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        res.bookingRef.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        res.code.toLowerCase().includes(searchTerm.toLowerCase())
-      )
-    }
-    
-    if (filterStatus !== 'all') {
-      filtered = filtered.filter(res => res.status === filterStatus)
-    }
-    
-    const startIndex = (currentPage - 1) * entriesPerPage
-    return filtered.slice(startIndex, startIndex + entriesPerPage)
-  }
-
-  const getFilteredRooms = () => {
-    let filtered = dashboardData.roomsList
-    
-    if (searchTerm) {
-      filtered = filtered.filter(room => 
-        room.name.toLowerCase().includes(searchTerm.toLowerCase())
-      )
-    }
-    
-    if (filterStatus !== 'all') {
-      filtered = filtered.filter(room => room.status === filterStatus)
-    }
-    
-    return filtered
-  }
-
-  const renderReservationsTable = () => {
-    const reservations = getFilteredReservations()
-    const totalPages = Math.ceil(dashboardData.reservations.length / entriesPerPage)
-
-    return (
-      <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50 border-b">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Booking #</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Code</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Guest</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Check-in</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Check-out</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {reservations.map(res => (
-                <tr key={res.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 text-sm font-medium text-gray-900">{res.bookingRef}</td>
-                  <td className="px-6 py-4 text-sm text-gray-500">{res.code}</td>
-                  <td className="px-6 py-4 text-sm text-gray-900">{res.guest}</td>
-                  <td className="px-6 py-4 text-sm text-gray-500">{res.checkIn}</td>
-                  <td className="px-6 py-4 text-sm text-gray-500">{res.checkOut}</td>
-                  <td className="px-6 py-4">
-                    <span className={`px-2 py-1 text-xs rounded-full ${
-                      res.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
-                      res.status === 'checked_in' ? 'bg-green-100 text-green-700' :
-                      'bg-red-100 text-red-700'
-                    }`}>
-                      {res.status === 'checked_in' ? 'Checked In' : 
-                       res.status === 'due_out' ? 'Due Out' : 'Pending'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <button 
-                      onClick={() => {
-                        setSelectedBooking(res)
-                        setExpandedBooking(expandedBooking === res.id ? null : res.id)
-                      }}
-                      className="text-amber-600 hover:text-amber-800"
-                    >
-                      <Eye size={16} />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        
-        <div className="px-6 py-4 border-t flex justify-between items-center">
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-600">Show</span>
-            <select 
-              value={entriesPerPage}
-              onChange={(e) => setEntriesPerPage(Number(e.target.value))}
-              className="px-2 py-1 border rounded"
-            >
-              <option value={5}>5</option>
-              <option value={10}>10</option>
-              <option value={25}>25</option>
-              <option value={50}>50</option>
-            </select>
-            <span className="text-sm text-gray-600">entries</span>
-          </div>
-          <div className="flex gap-2">
-            <button 
-              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-              disabled={currentPage === 1}
-              className="px-3 py-1 border rounded disabled:opacity-50"
-            >
-              Previous
-            </button>
-            <span className="px-3 py-1">Page {currentPage} of {totalPages}</span>
-            <button 
-              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-              disabled={currentPage === totalPages}
-              className="px-3 py-1 border rounded disabled:opacity-50"
-            >
-              Next
-            </button>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  const renderRoomsTable = () => {
-    const rooms = getFilteredRooms()
-    
-    return (
-      <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50 border-b">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Room Name</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Capacity</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price/Night</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {rooms.map(room => (
-                <tr key={room.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => handleRoomClick(room)}>
-                  <td className="px-6 py-4 text-sm font-medium text-gray-900">{room.name}</td>
-                  <td className="px-6 py-4 text-sm text-gray-500 capitalize">{room.type}</td>
-                  <td className="px-6 py-4 text-sm text-gray-500">{room.capacity} pax</td>
-                  <td className="px-6 py-4 text-sm text-gray-500">₱{room.price.toLocaleString()}</td>
-                  <td className="px-6 py-4">
-                    <span className={`px-2 py-1 text-xs rounded-full ${
-                      room.status === 'occupied' ? 'bg-green-100 text-green-700' :
-                      room.status === 'available' ? 'bg-blue-100 text-blue-700' :
-                      'bg-red-100 text-red-700'
-                    }`}>
-                      {room.status === 'occupied' ? 'Occupied' : 
-                       room.status === 'available' ? 'Available' : 'Maintenance'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    {room.status === 'occupied' && (
-                      <button 
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          const guest = dashboardData.allGuests.find(g => g.room === room.name)
-                          handleCheckOut(guest)
-                        }}
-                        className="text-blue-600 hover:text-blue-800"
-                      >
-                        <UserX size={16} />
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    )
-  }
+  };
 
   const Sidebar = () => (
-    <div className="fixed left-0 top-0 h-full w-64 bg-gradient-to-b from-gray-900 to-gray-800 text-white shadow-xl z-30 overflow-y-auto">
-      <div className="p-6 border-b border-gray-700">
+    <div className="fixed left-0 top-0 h-full w-64 bg-neutral-800 text-white shadow-xl z-30 overflow-y-auto">
+      <div className="p-6 border-b border-neutral-700">
         <div className="flex items-center gap-2 mb-2">
-          <div className="w-10 h-10 bg-gradient-to-br from-amber-500 to-orange-500 rounded-xl flex items-center justify-center">
+          <div className="w-10 h-10 bg-primary-600 rounded-xl flex items-center justify-center">
             <span className="text-white text-xl font-bold">🌊</span>
           </div>
           <div>
             <h1 className="text-xl font-bold">CoastaDesk</h1>
-            <p className="text-xs text-gray-400">Front Desk System</p>
+            <p className="text-xs text-neutral-400">Front Desk System</p>
           </div>
         </div>
-        <p className="text-xs text-amber-400">Staff • Front Desk</p>
+        <p className="text-xs text-secondary-400">Staff • Front Desk</p>
       </div>
 
       <nav className="p-4 space-y-1">
-        <div className="text-xs text-gray-500 uppercase tracking-wider px-3 py-2">Main</div>
-        <button 
-          onClick={() => {
-            setActiveTab('dashboard')
-            setSelectedView(null)
-          }}
-          className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all ${activeTab === 'dashboard' ? 'bg-amber-600 text-white' : 'text-gray-300 hover:bg-gray-700'}`}
+        <div className="text-xs text-neutral-500 uppercase tracking-wider px-3 py-2">Main</div>
+        <button
+          onClick={() => setActiveTab('dashboard')}
+          className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all ${activeTab === 'dashboard' ? 'bg-primary-600 text-white' : 'text-neutral-300 hover:bg-neutral-700'}`}
         >
           <LayoutDashboard size={18} />
           Dashboard
         </button>
 
-        <div className="text-xs text-gray-500 uppercase tracking-wider px-3 py-2 mt-4">Operations</div>
-        <button 
+        <div className="text-xs text-neutral-500 uppercase tracking-wider px-3 py-2 mt-4">Operations</div>
+        <button
           onClick={() => setShowCheckInModal(true)}
-          className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-gray-300 hover:bg-gray-700"
+          className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-neutral-300 hover:bg-neutral-700"
         >
           <UserCheck size={18} />
           Check-in
         </button>
-        <button 
+        <button
           onClick={() => setShowCheckOutModal(true)}
-          className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-gray-300 hover:bg-gray-700"
+          className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-neutral-300 hover:bg-neutral-700"
         >
           <UserX size={18} />
           Check-out
         </button>
-        <button 
+        <button
           onClick={() => setShowWalkInModal(true)}
-          className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-gray-300 hover:bg-gray-700"
+          className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-neutral-300 hover:bg-neutral-700"
         >
           <Plus size={18} />
           Walk-in registration
         </button>
-        <button 
-          onClick={() => {
-            setActiveTab('reservations')
-            setSelectedView(null)
-            setSearchTerm('')
-            setFilterStatus('all')
-          }}
-          className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-gray-300 hover:bg-gray-700"
+        <button
+          onClick={() => setActiveTab('online_bookings')}
+          className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all ${activeTab === 'online_bookings' ? 'bg-primary-600 text-white' : 'text-neutral-300 hover:bg-neutral-700'}`}
         >
           <Calendar size={18} />
           Online Bookings
         </button>
 
-        <div className="text-xs text-gray-500 uppercase tracking-wider px-3 py-2 mt-4">Records & Billing</div>
-        <button 
-          onClick={() => setShowChargeModal(true)}
-          className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-gray-300 hover:bg-gray-700"
-        >
-          <Receipt size={18} />
-          Charge to Room
-        </button>
-        <button 
+        <div className="text-xs text-neutral-500 uppercase tracking-wider px-3 py-2 mt-4">Records & Billing</div>
+        <button
           onClick={() => setShowDiscountModal(true)}
-          className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-gray-300 hover:bg-gray-700"
+          className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-neutral-300 hover:bg-neutral-700"
         >
-          <Receipt size={18} />
+          <Percent size={18} />
           Apply SC/PWD
         </button>
-        <button 
-          onClick={() => {
-            setActiveTab('reservations')
-            setSelectedView(null)
-            setSearchTerm('')
-            setFilterStatus('all')
-          }}
-          className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all ${activeTab === 'reservations' ? 'bg-amber-600 text-white' : 'text-gray-300 hover:bg-gray-700'}`}
-        >
-          <BookOpen size={18} />
-          Reservations
-        </button>
-        <button 
-          onClick={() => {
-            setActiveTab('guests')
-            setSelectedView(null)
-            setSearchTerm('')
-            setFilterStatus('all')
-          }}
-          className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all ${activeTab === 'guests' ? 'bg-amber-600 text-white' : 'text-gray-300 hover:bg-gray-700'}`}
+        <button
+          onClick={() => setActiveTab('guests')}
+          className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all ${activeTab === 'guests' ? 'bg-primary-600 text-white' : 'text-neutral-300 hover:bg-neutral-700'}`}
         >
           <Users size={18} />
           Guests
         </button>
-        <button 
-          onClick={() => {
-            setActiveTab('rooms')
-            setSelectedView(null)
-            setSearchTerm('')
-            setFilterStatus('all')
-          }}
-          className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all ${activeTab === 'rooms' ? 'bg-amber-600 text-white' : 'text-gray-300 hover:bg-gray-700'}`}
+        <button
+          onClick={() => setActiveTab('reservations')}
+          className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all ${activeTab === 'reservations' ? 'bg-primary-600 text-white' : 'text-neutral-300 hover:bg-neutral-700'}`}
+        >
+          <BookOpen size={18} />
+          Reservations
+        </button>
+        <button
+          onClick={() => setActiveTab('rooms')}
+          className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all ${activeTab === 'rooms' ? 'bg-primary-600 text-white' : 'text-neutral-300 hover:bg-neutral-700'}`}
         >
           <Home size={18} />
           Rooms
         </button>
-        <button 
-          onClick={() => setShowBillModal(true)}
-          className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-gray-300 hover:bg-gray-700"
+        <button
+          onClick={() => setActiveTab('billing')}
+          className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all ${activeTab === 'billing' ? 'bg-primary-600 text-white' : 'text-neutral-300 hover:bg-neutral-700'}`}
         >
           <Receipt size={18} />
           Billing
-        </button>
-
-        <div className="text-xs text-gray-500 uppercase tracking-wider px-3 py-2 mt-4">Compliance</div>
-        <button 
-          onClick={() => setShowHouseRulesModal(true)}
-          className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-gray-300 hover:bg-gray-700"
-        >
-          <ClipboardList size={18} />
-          House rules log
         </button>
       </nav>
     </div>
@@ -775,394 +446,391 @@ function StaffDashboard() {
 
   const renderContent = () => {
     if (activeTab === 'dashboard') {
+      const occupiedRooms = dashboardData.roomStatus.filter(r => r.status === 'occupied').length
+      const totalRooms = dashboardData.roomStatus.length
+      const occupancyRate = totalRooms > 0 ? Math.round((occupiedRooms / totalRooms) * 100) : 0
+
       return (
-        <>
-          {/* Quick Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            <button 
-              onClick={() => {
-                setSelectedView('arrivals')
-                setFilterStatus('pending')
-              }}
-              className="bg-white rounded-xl shadow-sm p-6 border-l-4 border-blue-500 hover:shadow-md transition-all text-left"
-            >
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="bg-white rounded-xl shadow-sm p-5 border-l-4 border-secondary-500">
               <div className="flex justify-between items-start">
                 <div>
-                  <p className="text-gray-500 text-sm">Arrivals today</p>
-                  <p className="text-3xl font-bold text-gray-800">{dashboardData.arrivalsToday.total}</p>
-                  <p className="text-sm text-green-600 mt-1">{dashboardData.arrivalsToday.checkedIn} already checked in</p>
+                  <p className="text-neutral-500 text-sm">Incoming arrivals</p>
+                  <p className="text-3xl font-bold text-neutral-800">{dashboardData.incomingArrivals.length}</p>
                 </div>
-                <UserCheck size={32} className="text-blue-500" />
+                <UserCheck size={28} className="text-secondary-500" />
               </div>
-            </button>
-            
-            <button 
-              onClick={() => {
-                setSelectedView('departures')
-                setFilterStatus('due_out')
-              }}
-              className="bg-white rounded-xl shadow-sm p-6 border-l-4 border-yellow-500 hover:shadow-md transition-all text-left"
-            >
+            </div>
+
+            <div className="bg-white rounded-xl shadow-sm p-5 border-l-4 border-primary-500">
               <div className="flex justify-between items-start">
                 <div>
-                  <p className="text-gray-500 text-sm">Departures today</p>
-                  <p className="text-3xl font-bold text-gray-800">{dashboardData.departuresToday.total}</p>
-                  <p className="text-sm text-orange-600 mt-1">{dashboardData.departuresToday.pending} pending checkout</p>
+                  <p className="text-neutral-500 text-sm">Currently checked in</p>
+                  <p className="text-3xl font-bold text-neutral-800">{dashboardData.currentGuests.length}</p>
                 </div>
-                <UserX size={32} className="text-yellow-500" />
+                <Users size={28} className="text-primary-500" />
               </div>
-            </button>
-            
-            <button 
-              onClick={() => {
-                setActiveTab('guests')
-                setFilterStatus('checked_in')
-              }}
-              className="bg-white rounded-xl shadow-sm p-6 border-l-4 border-green-500 hover:shadow-md transition-all text-left"
-            >
+            </div>
+
+            <div className="bg-white rounded-xl shadow-sm p-5 border-l-4 border-yellow-500">
               <div className="flex justify-between items-start">
                 <div>
-                  <p className="text-gray-500 text-sm">Guests on property</p>
-                  <p className="text-3xl font-bold text-gray-800">{dashboardData.guestsOnProperty}</p>
-                  <p className="text-sm text-gray-500 mt-1">Real-time count</p>
+                  <p className="text-neutral-500 text-sm">Pending checkouts</p>
+                  <p className="text-3xl font-bold text-neutral-800">{dashboardData.pendingCheckouts.length}</p>
                 </div>
-                <Users size={32} className="text-green-500" />
+                <Clock size={28} className="text-yellow-500" />
               </div>
-            </button>
-            
-            <button 
-              onClick={() => {
-                setActiveTab('rooms')
-              }}
-              className="bg-white rounded-xl shadow-sm p-6 border-l-4 border-purple-500 hover:shadow-md transition-all text-left"
-            >
+            </div>
+
+            <div className="bg-white rounded-xl shadow-sm p-5 border-l-4 border-green-500">
               <div className="flex justify-between items-start">
                 <div>
-                  <p className="text-gray-500 text-sm">Rooms occupied</p>
-                  <p className="text-3xl font-bold text-gray-800">{dashboardData.roomsOccupied}/{dashboardData.totalRooms}</p>
-                  <p className="text-sm text-gray-500 mt-1">{dashboardData.totalRooms - dashboardData.roomsOccupied} available</p>
+                  <p className="text-neutral-500 text-sm">Occupancy</p>
+                  <p className="text-3xl font-bold text-neutral-800">{occupancyRate}%</p>
+                  <p className="text-xs text-neutral-400">{occupiedRooms}/{totalRooms} rooms</p>
                 </div>
-                <Home size={32} className="text-purple-500" />
+                <Home size={28} className="text-green-500" />
               </div>
-            </button>
+            </div>
           </div>
 
-          {/* Quick Actions Buttons */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-            <button 
-              onClick={() => setShowCheckInModal(true)}
-              className="bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg py-3 px-4 font-semibold hover:shadow-lg transition-all flex items-center justify-center gap-2"
-            >
-              <UserCheck size={20} />
-              Check in guest
-            </button>
-            <button 
-              onClick={() => setShowCheckOutModal(true)}
-              className="bg-gradient-to-r from-yellow-500 to-yellow-600 text-white rounded-lg py-3 px-4 font-semibold hover:shadow-lg transition-all flex items-center justify-center gap-2"
-            >
-              <UserX size={20} />
-              Check out guest
-            </button>
-            <button 
-              onClick={() => setShowWalkInModal(true)}
-              className="bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg py-3 px-4 font-semibold hover:shadow-lg transition-all flex items-center justify-center gap-2"
-            >
-              <Plus size={20} />
-              New walk-in
-            </button>
-            <button 
-              onClick={() => setShowBillModal(true)}
-              className="bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-lg py-3 px-4 font-semibold hover:shadow-lg transition-all flex items-center justify-center gap-2"
-            >
-              <Receipt size={20} />
-              Generate bill
-            </button>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <button onClick={() => setShowReservationModal(true)} className="bg-primary-600 text-white rounded-lg py-2 px-3 text-sm hover:bg-primary-700">📅 New Reservation</button>
+            <button onClick={() => setShowWalkInModal(true)} className="bg-primary-600 text-white rounded-lg py-2 px-3 text-sm hover:bg-primary-700">➕ Walk-in</button>
+            <button onClick={() => setShowCheckInModal(true)} className="bg-secondary-600 text-white rounded-lg py-2 px-3 text-sm hover:bg-secondary-700">✓ Check-in</button>
+            <button onClick={() => setShowCheckOutModal(true)} className="bg-secondary-600 text-white rounded-lg py-2 px-3 text-sm hover:bg-secondary-700">✗ Check-out</button>
           </div>
 
-          {/* Widgets Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Incoming Arrivals */}
-            <div className="bg-white rounded-xl shadow-sm p-6">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="font-semibold text-gray-800 flex items-center gap-2">
-                  <Calendar size={20} className="text-amber-500" />
-                  Incoming arrivals
-                </h3>
-                <button 
-                  onClick={() => {
-                    setSelectedView('arrivals')
-                    setFilterStatus('pending')
-                  }}
-                  className="text-sm text-amber-600 hover:underline"
-                >
-                  View all
-                </button>
-              </div>
-              <div className="space-y-3">
-                {dashboardData.incomingArrivals.map((arrival) => (
-                  <div key={arrival.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+          <div className="bg-white rounded-xl shadow-sm p-5">
+            <h3 className="font-semibold text-neutral-800 mb-3">Incoming Arrivals</h3>
+            {dashboardData.incomingArrivals.length === 0 ? (
+              <p className="text-neutral-400 text-center py-4">No incoming arrivals</p>
+            ) : (
+              <div className="space-y-2">
+                {dashboardData.incomingArrivals.map(arrival => (
+                  <div key={arrival.id} className="flex justify-between items-center p-3 bg-neutral-50 rounded-lg">
                     <div>
-                      <p className="font-medium text-gray-800">{arrival.name}</p>
-                      <p className="text-sm text-gray-500">{arrival.room} · {arrival.guests} guests · {arrival.time}</p>
+                      <p className="font-medium">{arrival.name}</p>
+                      <p className="text-sm text-neutral-500">Room {arrival.room} · {arrival.guests} guests</p>
                     </div>
-                    <div className="flex gap-2">
-                      <span className={`text-sm px-2 py-1 rounded-full ${arrival.status === 'checked_in' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                        {arrival.status === 'checked_in' ? 'Checked in' : 'Pending'}
-                      </span>
-                      {arrival.status === 'pending' && (
-                        <button 
-                          onClick={() => handleCheckIn(arrival)}
-                          className="text-blue-600 hover:bg-blue-50 p-1 rounded"
-                        >
-                          <CheckCircle size={16} />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Pending Check-outs */}
-            <div className="bg-white rounded-xl shadow-sm p-6">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="font-semibold text-gray-800 flex items-center gap-2">
-                  <Clock size={20} className="text-amber-500" />
-                  Pending check-outs
-                </h3>
-                <button 
-                  onClick={() => {
-                    setSelectedView('departures')
-                    setFilterStatus('due_out')
-                  }}
-                  className="text-sm text-amber-600 hover:underline"
-                >
-                  View all
-                </button>
-              </div>
-              <div className="space-y-3">
-                {dashboardData.pendingCheckouts.map((checkout) => (
-                  <div key={checkout.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                    <div>
-                      <p className="font-medium text-gray-800">{checkout.name}</p>
-                      <p className="text-sm text-gray-500">{checkout.room} · Due {checkout.dueTime}</p>
-                    </div>
-                    <div className="flex gap-2">
-                      <span className={`text-sm px-2 py-1 rounded-full ${checkout.status === 'overdue' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                        {checkout.status === 'overdue' ? 'Overdue' : 'Pending'}
-                      </span>
-                      <button 
-                        onClick={() => handleCheckOut(checkout)}
-                        className="text-blue-600 hover:bg-blue-50 p-1 rounded"
-                      >
-                        <UserX size={16} />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Room Status Grid */}
-            <div className="bg-white rounded-xl shadow-sm p-6">
-              <h3 className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                <Home size={20} className="text-amber-500" />
-                Room status
-              </h3>
-              <div className="grid grid-cols-2 gap-3">
-                {dashboardData.roomStatus.map((room) => (
-                  <button 
-                    key={room.id}
-                    onClick={() => handleRoomClick(room)}
-                    className="flex justify-between items-center p-3 bg-gray-50 rounded-lg hover:shadow-md transition-all"
-                  >
-                    <span className="font-medium text-gray-800">{room.name}</span>
-                    <span className={`text-sm px-2 py-1 rounded-full ${
-                      room.status === 'occupied' ? 'bg-green-100 text-green-700' : 
-                      room.status === 'available' ? 'bg-blue-100 text-blue-700' : 
-                      'bg-red-100 text-red-700'
-                    }`}>
-                      {room.status === 'occupied' ? 'Occupied' : 
-                       room.status === 'available' ? 'Available' : 'Maintenance'}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Notifications */}
-            <div className="bg-white rounded-xl shadow-sm p-6">
-              <h3 className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                <Bell size={20} className="text-amber-500" />
-                Notifications
-              </h3>
-              <div className="space-y-3">
-                {dashboardData.notifications.map((note) => (
-                  <div key={note.id} className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg group">
-                    <AlertCircle size={16} className={`mt-0.5 ${
-                      note.type === 'urgent' ? 'text-red-500' : 
-                      note.type === 'warning' ? 'text-yellow-500' : 'text-blue-500'
-                    }`} />
-                    <div className="flex-1">
-                      <p className="text-sm text-gray-700">{note.text}</p>
-                      <p className="text-xs text-gray-400 mt-1">{note.time}</p>
-                    </div>
-                    <button 
-                      onClick={() => dismissNotification(note.id)}
-                      className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-gray-600"
+                    <button
+                      onClick={() => {
+                        setSelectedGuest(arrival)
+                        setShowCheckInModal(true)
+                      }}
+                      className="px-3 py-1 bg-primary-600 text-white rounded text-sm hover:bg-primary-700"
                     >
-                      <X size={14} />
+                      Check in
                     </button>
                   </div>
                 ))}
               </div>
-            </div>
+            )}
           </div>
-        </>
-      )
-    } else if (activeTab === 'reservations') {
-      return (
-        <div>
-          <h2 className="text-2xl font-bold text-gray-800 mb-6">Reservations</h2>
-          {renderReservationsTable()}
-        </div>
-      )
-    } else if (activeTab === 'rooms') {
-      return (
-        <div>
-          <h2 className="text-2xl font-bold text-gray-800 mb-6">Rooms Status</h2>
-          {renderRoomsTable()}
-        </div>
-      )
-    } else if (activeTab === 'guests') {
-      return (
-        <div>
-          <h2 className="text-2xl font-bold text-gray-800 mb-6">Guests</h2>
-          {renderReservationsTable()}
+
+          <div className="bg-white rounded-xl shadow-sm p-5">
+            <h3 className="font-semibold text-neutral-800 mb-3">Current Guests</h3>
+            {dashboardData.currentGuests.length === 0 ? (
+              <p className="text-neutral-400 text-center py-4">No guests currently checked in</p>
+            ) : (
+              <div className="space-y-2">
+                {dashboardData.currentGuests.map(guest => (
+                  <div key={guest.id} className="flex justify-between items-center p-3 bg-neutral-50 rounded-lg">
+                    <div>
+                      <p className="font-medium">{guest.name}</p>
+                      <p className="text-sm text-neutral-500">Room {guest.room} · Check-out {guest.checkOut}</p>
+                      <p className="text-xs text-primary-600 font-medium">Bill: ₱{guest.bill?.toLocaleString() || 0}</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => {
+                          setSelectedGuest(guest)
+                          setShowPaymentModal(true)
+                        }}
+                        className="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700"
+                      >
+                        Pay
+                      </button>
+                      <button
+                        onClick={() => {
+                          setSelectedGuest(guest)
+                          setShowCheckOutModal(true)
+                        }}
+                        className="px-3 py-1 bg-yellow-600 text-white rounded text-sm hover:bg-yellow-700"
+                      >
+                        Check out
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )
     }
+
+    if (activeTab === 'reservations') {
+      return (
+        <div className="bg-white rounded-xl shadow-sm p-5">
+          <h2 className="text-xl font-bold text-neutral-800 mb-4">Reservations</h2>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-neutral-50 border-b">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500">ID</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500">Guest</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500">Room</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500">Check In</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500">Check Out</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {bookingsList.map(booking => (
+                  <tr key={booking.id} className="border-b hover:bg-neutral-50">
+                    <td className="px-4 py-3 text-sm">{booking.id}</td>
+                    <td className="px-4 py-3 text-sm">{booking.user?.first_name || booking.guest?.first_name || 'Guest'}</td>
+                    <td className="px-4 py-3 text-sm">{booking.room?.room_number || '-'}</td>
+                    <td className="px-4 py-3 text-sm">{booking.check_in}</td>
+                    <td className="px-4 py-3 text-sm">{booking.check_out}</td>
+                    <td className="px-4 py-3">
+                      <span className={`px-2 py-1 text-xs rounded-full ${booking.status === 'confirmed' ? 'bg-green-100 text-green-700' :
+                        booking.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
+                          booking.status === 'checked_in' ? 'bg-blue-100 text-blue-700' :
+                            'bg-red-100 text-red-700'
+                        }`}>
+                        {booking.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )
+    }
+
+    if (activeTab === 'rooms') {
+      return (
+        <div className="bg-white rounded-xl shadow-sm p-5">
+          <h2 className="text-xl font-bold text-neutral-800 mb-4">Room Status</h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {dashboardData.roomStatus.map(room => (
+              <div key={room.id} className="p-3 bg-neutral-50 rounded-lg border">
+                <p className="font-bold">{room.name}</p>
+                <p className="text-sm text-neutral-500">{room.type || 'Standard'}</p>
+                <span className={`text-xs px-2 py-1 rounded-full inline-block mt-2 ${room.status === 'available' ? 'bg-green-100 text-green-700' :
+                  room.status === 'occupied' ? 'bg-red-100 text-red-700' :
+                    room.status === 'maintenance' ? 'bg-yellow-100 text-yellow-700' :
+                      'bg-gray-100 text-gray-700'
+                  }`}>
+                  {room.status}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )
+    }
+
+    if (activeTab === 'billing') {
+      return (
+        <div className="bg-white rounded-xl shadow-sm p-5">
+          <h2 className="text-xl font-bold text-neutral-800 mb-4">Billing & Payments</h2>
+          {dashboardData.currentGuests.length === 0 ? (
+            <p className="text-neutral-400 text-center py-8">No active guests with bills</p>
+          ) : (
+            <div className="space-y-4">
+              {dashboardData.currentGuests.map(guest => (
+                <div key={guest.id} className="border rounded-lg p-4">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="font-bold">{guest.name}</p>
+                      <p className="text-sm text-neutral-500">Room {guest.room}</p>
+                      <p className="text-sm text-neutral-500">Check-in: {guest.checkIn}</p>
+                      <p className="text-sm text-neutral-500">Check-out: {guest.checkOut}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-lg font-bold text-primary-600">₱{guest.bill?.toLocaleString() || 0}</p>
+                      <div className="flex gap-2 mt-2">
+                        <button
+                          onClick={() => {
+                            setSelectedGuest(guest)
+                            setShowPaymentModal(true)
+                          }}
+                          className="px-3 py-1 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700"
+                        >
+                          Make Payment
+                        </button>
+                        <button
+                          onClick={() => {
+                            setSelectedGuest(guest)
+                            setShowCheckOutModal(true)
+                          }}
+                          className="px-3 py-1 bg-yellow-600 text-white rounded-lg text-sm hover:bg-yellow-700"
+                        >
+                          Checkout
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )
+    }
+
+    if (activeTab === 'online_bookings') {
+      const onlineBookings = (bookingsList || []).filter(b => b.status === 'pending');
+      return (
+        <div className="bg-white rounded-xl shadow-sm p-5">
+          <h2 className="text-xl font-bold text-neutral-800 mb-4">Online Bookings Approval Queue</h2>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-neutral-50 border-b">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500">Booking Code</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500">Guest</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500">Room</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500">Check In - Out</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500">Source</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500">Amount</th>
+                  <th className="px-4 py-3 text-center text-xs font-medium text-neutral-500">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {onlineBookings.map(booking => (
+                  <tr key={booking.id} className="border-b hover:bg-neutral-50">
+                    <td className="px-4 py-3 text-sm text-primary-600 font-medium">{booking.booking_code || `CMB-${booking.id}`}</td>
+                    <td className="px-4 py-3 text-sm">
+                      {booking.user ? `${booking.user.first_name} ${booking.user.last_name}` : 
+                       booking.guest ? `${booking.guest.first_name} ${booking.guest.last_name}` : 'Guest'}
+                    </td>
+                    <td className="px-4 py-3 text-sm">Room {booking.room?.room_number || '-'}</td>
+                    <td className="px-4 py-3 text-sm">{booking.check_in} to {booking.check_out}</td>
+                    <td className="px-4 py-3 text-sm capitalize">{booking.source_channel || 'Website'}</td>
+                    <td className="px-4 py-3 text-sm font-semibold">₱{(booking.total_price || 0).toLocaleString()}</td>
+                    <td className="px-4 py-3 text-center">
+                      <div className="flex justify-center gap-2">
+                        <button
+                          onClick={() => handleConfirmBooking(booking.id)}
+                          className="p-1 bg-green-100 text-green-700 rounded hover:bg-green-200"
+                          title="Confirm Booking"
+                        >
+                          <CheckCircle size={16} />
+                        </button>
+                        <button
+                          onClick={() => handleCancelBooking(booking.id)}
+                          className="p-1 bg-red-100 text-red-700 rounded hover:bg-red-200"
+                          title="Cancel Booking"
+                        >
+                          <XCircle size={16} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {onlineBookings.length === 0 && (
+                  <tr>
+                    <td colSpan="7" className="px-4 py-8 text-center text-neutral-400">No pending online bookings awaiting approval</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )
+    }
+
+    if (activeTab === 'guests') {
+      return (
+        <div className="bg-white rounded-xl shadow-sm p-5">
+          <h2 className="text-xl font-bold text-neutral-800 mb-4">Guests Catalog</h2>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead className="bg-neutral-50 border-b">
+                <tr>
+                  <th className="p-3 text-xs font-medium text-neutral-500">Name</th>
+                  <th className="p-3 text-xs font-medium text-neutral-500">Email</th>
+                  <th className="p-3 text-xs font-medium text-neutral-500">Mobile</th>
+                  <th className="p-3 text-xs font-medium text-neutral-500">Location</th>
+                  <th className="p-3 text-xs font-medium text-neutral-500">Blacklisted</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(guestsList || []).map(guest => (
+                  <tr key={guest.id} className="border-b hover:bg-neutral-50">
+                    <td className="p-3 font-semibold text-sm">{guest.first_name} {guest.last_name}</td>
+                    <td className="p-3 text-sm">{guest.email || 'N/A'}</td>
+                    <td className="p-3 text-sm">{guest.mobile || guest.phone || 'N/A'}</td>
+                    <td className="p-3 text-sm">{guest.city ? `${guest.city}, ${guest.country || 'Philippines'}` : 'N/A'}</td>
+                    <td className="p-3 text-sm">
+                      <span className={`px-2 py-1 rounded-full text-xs font-bold ${guest.is_blacklisted ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                        {guest.is_blacklisted ? 'Yes' : 'No'}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+                {(!guestsList || guestsList.length === 0) && (
+                  <tr>
+                    <td colSpan="5" className="p-3 text-center text-neutral-400">No guests found</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )
+    }
+
     return null
   }
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-neutral-100">
       <Sidebar />
-      
+
       <div className="ml-64">
         <header className="bg-white shadow-sm sticky top-0 z-20">
           <div className="px-8 py-4">
-            <div className="flex justify-between items-center mb-3">
+            <div className="flex justify-between items-center">
               <div>
-                <h1 className="text-2xl font-bold text-gray-800">
-                  {activeTab === 'dashboard' ? 'Dashboard' : 
-                   activeTab === 'reservations' ? 'Reservations' :
-                   activeTab === 'guests' ? 'Guests' : 'Rooms'}
-                </h1>
-                <p className="text-sm text-gray-500">
-                  {currentTime.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} | {currentTime.toLocaleTimeString()}
-                </p>
+                <h1 className="text-2xl font-bold text-neutral-800">Staff Dashboard</h1>
+                <p className="text-sm text-neutral-500">{currentTime.toLocaleString()}</p>
               </div>
-              
               <div className="relative">
-                <button 
+                <button
                   onClick={() => setShowUserMenu(!showUserMenu)}
-                  className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-100 transition-all"
+                  className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-neutral-100"
                 >
-                  <div className="w-10 h-10 bg-gradient-to-br from-amber-500 to-orange-500 rounded-full flex items-center justify-center">
+                  <div className="w-10 h-10 bg-primary-600 rounded-full flex items-center justify-center">
                     <User size={20} className="text-white" />
                   </div>
-                  <div className="text-left hidden md:block">
-                    <p className="font-medium text-gray-800">{userData?.firstName || 'Staff'} {userData?.lastName || 'User'}</p>
-                    <p className="text-xs text-gray-500">Front Desk Staff</p>
+                  <div className="text-left">
+                    <p className="font-medium text-neutral-800">{userData.firstName || 'Staff'}</p>
+                    <p className="text-xs text-neutral-500">Front Desk</p>
                   </div>
-                  <ChevronDown size={16} className="text-gray-400" />
                 </button>
-                
                 {showUserMenu && (
-                  <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-xl border z-50">
-                    <div className="p-3 border-b">
-                      <p className="font-medium text-gray-800">{userData?.firstName} {userData?.lastName}</p>
-                      <p className="text-xs text-gray-500">{userData?.email || 'staff@costamarina.com'}</p>
-                    </div>
-                    <div className="p-2">
-                      <button className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-100 transition-all text-left">
-                        <User size={16} />
-                        My Account
-                      </button>
-                      <button className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-100 transition-all text-left">
-                        <Settings size={16} />
-                        Settings
-                      </button>
-                      <hr className="my-2" />
-                      <button 
-                        onClick={handleLogout}
-                        className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-red-50 text-red-600 transition-all text-left"
-                      >
-                        <LogOut size={16} />
-                        Logout
-                      </button>
-                    </div>
+                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl border z-50">
+                    <button onClick={handleLogout} className="w-full flex items-center gap-2 px-4 py-2 text-red-600 hover:bg-red-50">Logout</button>
                   </div>
                 )}
               </div>
             </div>
-            
-            {(activeTab === 'reservations' || activeTab === 'guests') && (
-              <div className="flex gap-3">
-                <div className="flex-1 relative">
-                  <Search size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                  <input 
-                    type="text" 
-                    placeholder="Search by guest name, booking #, or confirmation code..."
-                    value={searchTerm}
-                    onChange={(e) => {
-                      setSearchTerm(e.target.value)
-                      setCurrentPage(1)
-                    }}
-                    className="w-full pl-10 pr-4 py-2 border rounded-lg focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
-                  />
-                </div>
-                <select 
-                  value={filterStatus}
-                  onChange={(e) => {
-                    setFilterStatus(e.target.value)
-                    setCurrentPage(1)
-                  }}
-                  className="px-4 py-2 border rounded-lg focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
-                >
-                  <option value="all">All Status</option>
-                  <option value="pending">Pending</option>
-                  <option value="checked_in">Checked In</option>
-                  <option value="due_out">Due Out</option>
-                </select>
-              </div>
-            )}
-            
-            {activeTab === 'rooms' && (
-              <div className="flex gap-3">
-                <div className="flex-1 relative">
-                  <Search size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                  <input 
-                    type="text" 
-                    placeholder="Search by room name..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 border rounded-lg focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
-                  />
-                </div>
-                <select 
-                  value={filterStatus}
-                  onChange={(e) => setFilterStatus(e.target.value)}
-                  className="px-4 py-2 border rounded-lg focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
-                >
-                  <option value="all">All Status</option>
-                  <option value="available">Available</option>
-                  <option value="occupied">Occupied</option>
-                  <option value="maintenance">Maintenance</option>
-                </select>
-              </div>
-            )}
+            <div className="flex gap-6 border-t mt-3 pt-3">
+              <button onClick={() => setActiveTab('dashboard')} className={`text-sm ${activeTab === 'dashboard' ? 'text-primary-600 border-b-2 border-primary-600 pb-1' : 'text-neutral-500'}`}>Dashboard</button>
+              <button onClick={() => setActiveTab('online_bookings')} className={`text-sm ${activeTab === 'online_bookings' ? 'text-primary-600 border-b-2 border-primary-600 pb-1' : 'text-neutral-500'}`}>Online Bookings</button>
+              <button onClick={() => setActiveTab('guests')} className={`text-sm ${activeTab === 'guests' ? 'text-primary-600 border-b-2 border-primary-600 pb-1' : 'text-neutral-500'}`}>Guests</button>
+              <button onClick={() => setActiveTab('reservations')} className={`text-sm ${activeTab === 'reservations' ? 'text-primary-600 border-b-2 border-primary-600 pb-1' : 'text-neutral-500'}`}>Reservations</button>
+              <button onClick={() => setActiveTab('rooms')} className={`text-sm ${activeTab === 'rooms' ? 'text-primary-600 border-b-2 border-primary-600 pb-1' : 'text-neutral-500'}`}>Rooms</button>
+              <button onClick={() => setActiveTab('billing')} className={`text-sm ${activeTab === 'billing' ? 'text-primary-600 border-b-2 border-primary-600 pb-1' : 'text-neutral-500'}`}>Billing</button>
+            </div>
           </div>
         </header>
 
@@ -1171,527 +839,189 @@ function StaffDashboard() {
         </div>
       </div>
 
-      {/* Modals - Same as before, keeping them for brevity */}
-      {/* Walk-in Modal */}
-      {showWalkInModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white border-b p-4 flex justify-between items-center">
-              <h2 className="text-2xl font-bold text-gray-800">New Walk-in Guest Registration</h2>
-              <button onClick={() => setShowWalkInModal(false)} className="p-2 hover:bg-gray-100 rounded-lg">
-                <X size={24} />
-              </button>
-            </div>
-            <div className="p-6">
-              <form className="space-y-4">
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-gray-700 font-medium mb-1">First Name *</label>
-                    <input 
-                      type="text" 
-                      value={walkInForm.firstName}
-                      onChange={(e) => setWalkInForm({...walkInForm, firstName: e.target.value})}
-                      className="w-full px-3 py-2 border rounded-lg focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-gray-700 font-medium mb-1">Last Name *</label>
-                    <input 
-                      type="text" 
-                      value={walkInForm.lastName}
-                      onChange={(e) => setWalkInForm({...walkInForm, lastName: e.target.value})}
-                      className="w-full px-3 py-2 border rounded-lg focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
-                    />
-                  </div>
-                </div>
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-gray-700 font-medium mb-1">Email</label>
-                    <input 
-                      type="email" 
-                      value={walkInForm.email}
-                      onChange={(e) => setWalkInForm({...walkInForm, email: e.target.value})}
-                      className="w-full px-3 py-2 border rounded-lg focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-gray-700 font-medium mb-1">Phone *</label>
-                    <input 
-                      type="tel" 
-                      value={walkInForm.phone}
-                      onChange={(e) => setWalkInForm({...walkInForm, phone: e.target.value})}
-                      className="w-full px-3 py-2 border rounded-lg focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
-                    />
-                  </div>
-                </div>
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-gray-700 font-medium mb-1">Room Type *</label>
-                    <select 
-                      value={walkInForm.roomType}
-                      onChange={(e) => setWalkInForm({...walkInForm, roomType: e.target.value})}
-                      className="w-full px-3 py-2 border rounded-lg focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
-                    >
-                      <option value="">Select room type</option>
-                      <option value="cottage">Cottage (₱4,800/night)</option>
-                      <option value="dormitory">Dormitory (₱13,000/night)</option>
-                      <option value="villa">Villa (₱20,000/night)</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-gray-700 font-medium mb-1">Number of Nights</label>
-                    <input 
-                      type="number" 
-                      min="1"
-                      value={walkInForm.nights}
-                      onChange={(e) => setWalkInForm({...walkInForm, nights: parseInt(e.target.value)})}
-                      className="w-full px-3 py-2 border rounded-lg focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-gray-700 font-medium mb-1">Check-in Date</label>
-                  <input 
-                    type="date" 
-                    value={walkInForm.checkInDate}
-                    onChange={(e) => setWalkInForm({...walkInForm, checkInDate: e.target.value})}
-                    className="w-full px-3 py-2 border rounded-lg focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
-                  />
-                </div>
-                <div>
-                  <label className="block text-gray-700 font-medium mb-1">Special Requests</label>
-                  <textarea 
-                    value={walkInForm.specialRequests}
-                    onChange={(e) => setWalkInForm({...walkInForm, specialRequests: e.target.value})}
-                    rows="2"
-                    className="w-full px-3 py-2 border rounded-lg focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
-                    placeholder="Any special requests or notes..."
-                  />
-                </div>
-                <div className="flex gap-3 pt-4">
-                  <button 
-                    type="button"
-                    onClick={handleRegisterWalkIn}
-                    className="flex-1 py-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-lg font-semibold hover:shadow-lg transition-all"
-                  >
-                    Register Guest
-                  </button>
-                  <button 
-                    type="button"
-                    onClick={() => setShowWalkInModal(false)}
-                    className="flex-1 py-2 border border-gray-300 rounded-lg font-semibold hover:bg-gray-50 transition-all"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Check-in Modal */}
       {showCheckInModal && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-md w-full">
             <div className="border-b p-4 flex justify-between items-center">
-              <h2 className="text-xl font-bold text-gray-800">Check-in Guest</h2>
-              <button onClick={() => setShowCheckInModal(false)} className="p-2 hover:bg-gray-100 rounded-lg">
-                <X size={20} />
-              </button>
+              <h2 className="text-xl font-bold">Check-in Guest</h2>
+              <button onClick={() => setShowCheckInModal(false)} className="p-2 hover:bg-gray-100 rounded-lg"><X size={20} /></button>
             </div>
             <div className="p-6">
-              <div className="mb-4">
-                <label className="block text-gray-700 font-medium mb-2">Select Booking</label>
-                <select 
-                  className="w-full px-3 py-2 border rounded-lg"
-                  onChange={(e) => {
-                    const guest = dashboardData.incomingArrivals.find(g => g.id === parseInt(e.target.value))
-                    setSelectedGuest(guest)
-                  }}
-                >
-                  <option value="">Select booking reference</option>
-                  {dashboardData.incomingArrivals.filter(a => a.status === 'pending').map(guest => (
-                    <option key={guest.id} value={guest.id}>{guest.bookingRef} - {guest.name}</option>
-                  ))}
-                </select>
-              </div>
+              <select
+                className="w-full px-3 py-2 border rounded-lg mb-4"
+                onChange={(e) => {
+                  const guest = dashboardData.incomingArrivals.find(g => g.id === parseInt(e.target.value))
+                  setSelectedGuest(guest)
+                }}
+                value={selectedGuest?.id || ''}
+              >
+                <option value="">Select a booking</option>
+                {dashboardData.incomingArrivals.map(g => (
+                  <option key={g.id} value={g.id}>{g.id} - {g.name} (Room {g.room})</option>
+                ))}
+              </select>
               {selectedGuest && (
                 <div className="bg-gray-50 p-3 rounded-lg mb-4">
                   <p className="font-medium">{selectedGuest.name}</p>
-                  <p className="text-sm text-gray-600">Room: {selectedGuest.room} · {selectedGuest.guests} guests</p>
-                  <p className="text-sm text-gray-600">Booking: {selectedGuest.bookingRef}</p>
+                  <p className="text-sm text-gray-600">Room: {selectedGuest.room}</p>
                 </div>
               )}
-              <div className="flex gap-2">
-                <button 
-                  onClick={handleCompleteCheckIn}
-                  disabled={!selectedGuest}
-                  className="flex-1 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg font-semibold disabled:opacity-50"
-                >
-                  Confirm Check-in
-                </button>
-                <button onClick={() => setShowCheckInModal(false)} className="flex-1 py-2 border border-gray-300 rounded-lg font-semibold">
-                  Cancel
-                </button>
-              </div>
+              <button onClick={handleCompleteCheckIn} disabled={!selectedGuest} className="w-full py-2 bg-primary-600 text-white rounded-lg disabled:opacity-50">Confirm Check-in</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Check-out & Billing Modal */}
-      {showCheckOutModal && selectedGuest && (
+      {/* Check-out Modal */}
+      {showCheckOutModal && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white border-b p-4 flex justify-between items-center">
-              <h2 className="text-2xl font-bold text-gray-800">Check-out & Billing</h2>
-              <button onClick={() => setShowCheckOutModal(false)} className="p-2 hover:bg-gray-100 rounded-lg">
-                <X size={24} />
-              </button>
-            </div>
-            <div className="p-6">
-              <div className="mb-6">
-                <h3 className="font-semibold text-gray-800 mb-3">Guest Information</h3>
-                <div className="bg-gray-50 p-3 rounded-lg">
-                  <p className="font-medium">Guest: {selectedGuest.name}</p>
-                  <p className="text-sm text-gray-600">Room: {selectedGuest.room}</p>
-                  <p className="text-sm text-gray-600">Check-in: {selectedGuest.checkIn} | Check-out: {selectedGuest.checkOut}</p>
-                </div>
-              </div>
-
-              <div className="mb-6">
-                <h3 className="font-semibold text-gray-800 mb-3">Add-on Services</h3>
-                <div className="space-y-2">
-                  {addOns.map(item => (
-                    <div key={item.id} className="flex justify-between items-center p-2 bg-gray-50 rounded-lg">
-                      <div>
-                        <p className="font-medium">{item.name}</p>
-                        <p className="text-sm text-gray-500">₱{item.price.toLocaleString()}</p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <button 
-                          onClick={() => updateAddOnQuantity(item.id, item.quantity - 1)}
-                          className="w-8 h-8 bg-gray-200 rounded-full hover:bg-gray-300 flex items-center justify-center"
-                        >-</button>
-                        <span className="w-8 text-center">{item.quantity}</span>
-                        <button 
-                          onClick={() => updateAddOnQuantity(item.id, item.quantity + 1)}
-                          className="w-8 h-8 bg-gray-200 rounded-full hover:bg-gray-300 flex items-center justify-center"
-                        >+</button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="mb-6 border-t pt-4">
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span>Room Charge:</span>
-                    <span>₱{(actualBill ? actualBill.room_charge : 4800).toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Add-ons / Food:</span>
-                    <span>₱{(actualBill ? actualBill.addons_charge : (calculateTotalBill() - 4800)).toLocaleString()}</span>
-                  </div>
-                  {actualBill && actualBill.discount_amount > 0 && (
-                    <div className="flex justify-between text-green-600">
-                      <span>Discount ({actualBill.discount?.name}):</span>
-                      <span>-₱{actualBill.discount_amount.toLocaleString()}</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between font-bold text-lg border-t pt-2">
-                    <span>Total Amount Due:</span>
-                    <span className="text-amber-600">₱{(actualBill ? actualBill.total_amount : calculateTotalBill()).toLocaleString()}</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mb-6 border-t pt-4 print:hidden">
-                <h3 className="font-semibold text-gray-800 mb-3">Payment Method</h3>
-                <div className="flex gap-4 mb-3">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="radio" name="payment" value="cash" checked={paymentMethod === 'cash'} onChange={() => setPaymentMethod('cash')} />
-                    <span>Cash</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="radio" name="payment" value="gcash" checked={paymentMethod === 'gcash'} onChange={() => setPaymentMethod('gcash')} />
-                    <span>GCash</span>
-                  </label>
-                </div>
-                {paymentMethod === 'gcash' && (
-                  <input 
-                    type="text" 
-                    className="w-full px-3 py-2 border rounded-lg" 
-                    placeholder="Enter GCash Reference Number"
-                    value={referenceNumber}
-                    onChange={(e) => setReferenceNumber(e.target.value)}
-                  />
-                )}
-              </div>
-
-              <div className="flex gap-3">
-                <button 
-                  onClick={handleCompleteCheckOut}
-                  className="flex-1 py-2 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all flex items-center justify-center gap-2"
-                >
-                  <Printer size={18} />
-                  Complete Check-out & Print Bill
-                </button>
-                <button 
-                  onClick={() => setShowCheckOutModal(false)}
-                  className="flex-1 py-2 border border-gray-300 rounded-lg font-semibold hover:bg-gray-50 transition-all"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Generate Bill Modal */}
-      {showBillModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full">
+          <div className="bg-white rounded-2xl max-w-md w-full">
             <div className="border-b p-4 flex justify-between items-center">
-              <h2 className="text-xl font-bold text-gray-800">Generate Bill</h2>
-              <button onClick={() => setShowBillModal(false)} className="p-2 hover:bg-gray-100 rounded-lg">
-                <X size={20} />
-              </button>
+              <h2 className="text-xl font-bold">Check-out Guest</h2>
+              <button onClick={() => setShowCheckOutModal(false)} className="p-2 hover:bg-gray-100 rounded-lg"><X size={20} /></button>
             </div>
             <div className="p-6">
-              <div className="mb-4">
-                <label className="block text-gray-700 font-medium mb-1">Select Guest</label>
-                <select 
-                  className="w-full px-3 py-2 border rounded-lg"
-                  onChange={(e) => {
-                    const guest = dashboardData.allGuests.find(g => g.id === parseInt(e.target.value))
-                    setSelectedGuest(guest)
-                  }}
-                >
-                  <option value="">Select a guest</option>
-                  {dashboardData.allGuests.filter(g => g.status === 'checked_in').map(guest => (
-                    <option key={guest.id} value={guest.id}>{guest.name} - {guest.room}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="mb-4">
-                <label className="block text-gray-700 font-medium mb-1">Bill Type</label>
-                <select className="w-full px-3 py-2 border rounded-lg">
-                  <option>Final Bill (Check-out)</option>
-                  <option>Interim Bill</option>
-                  <option>Deposit Slip</option>
-                </select>
-              </div>
+              <select
+                className="w-full px-3 py-2 border rounded-lg mb-4"
+                onChange={(e) => {
+                  const guest = dashboardData.currentGuests.find(g => g.id === parseInt(e.target.value))
+                  setSelectedGuest(guest)
+                }}
+                value={selectedGuest?.id || ''}
+              >
+                <option value="">Select a guest</option>
+                {dashboardData.currentGuests.map(g => (
+                  <option key={g.id} value={g.id}>{g.name} - Room {g.room} (₱{g.bill?.toLocaleString()})</option>
+                ))}
+              </select>
               {selectedGuest && (
                 <div className="bg-gray-50 p-3 rounded-lg mb-4">
-                  <p className="text-sm text-gray-600">Guest: {selectedGuest.name}</p>
+                  <p className="font-medium">{selectedGuest.name}</p>
                   <p className="text-sm text-gray-600">Room: {selectedGuest.room}</p>
-                  <p className="text-sm text-gray-600">Current bill estimate: ₱4800</p>
+                  <p className="text-sm font-bold text-primary-600">Bill: ₱{selectedGuest.bill?.toLocaleString() || 0}</p>
                 </div>
               )}
-              <button 
-                onClick={() => {
-                  alert(`Bill generated for ${selectedGuest?.name || 'guest'}`)
-                  setShowBillModal(false)
-                }}
-                disabled={!selectedGuest}
-                className="w-full py-2 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-lg font-semibold disabled:opacity-50"
-              >
-                Generate Bill
-              </button>
+              <button onClick={handleCompleteCheckOut} disabled={!selectedGuest} className="w-full py-2 bg-yellow-600 text-white rounded-lg disabled:opacity-50">Confirm Check-out</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* House Rules Log Modal */}
-      {showHouseRulesModal && (
+      {/* Payment Modal */}
+      {showPaymentModal && selectedGuest && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full">
+          <div className="bg-white rounded-2xl max-w-md w-full">
             <div className="border-b p-4 flex justify-between items-center">
-              <h2 className="text-xl font-bold text-gray-800">Log House Rule Violation</h2>
-              <button onClick={() => setShowHouseRulesModal(false)} className="p-2 hover:bg-gray-100 rounded-lg">
-                <X size={20} />
-              </button>
+              <h2 className="text-xl font-bold">Process Payment</h2>
+              <button onClick={() => setShowPaymentModal(false)} className="p-2 hover:bg-gray-100 rounded-lg"><X size={20} /></button>
             </div>
             <div className="p-6">
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-gray-700 font-medium mb-1">Guest Name *</label>
-                  <input 
-                    type="text"
-                    value={houseRuleEntry.guestName}
-                    onChange={(e) => setHouseRuleEntry({...houseRuleEntry, guestName: e.target.value})}
-                    className="w-full px-3 py-2 border rounded-lg"
-                    placeholder="Enter guest name"
-                  />
-                </div>
-                <div>
-                  <label className="block text-gray-700 font-medium mb-1">Room/Cottage *</label>
-                  <input 
-                    type="text"
-                    value={houseRuleEntry.room}
-                    onChange={(e) => setHouseRuleEntry({...houseRuleEntry, room: e.target.value})}
-                    className="w-full px-3 py-2 border rounded-lg"
-                    placeholder="Room number or name"
-                  />
-                </div>
-                <div>
-                  <label className="block text-gray-700 font-medium mb-1">Rule Violated *</label>
-                  <select 
-                    value={houseRuleEntry.ruleViolated}
-                    onChange={(e) => setHouseRuleEntry({...houseRuleEntry, ruleViolated: e.target.value})}
-                    className="w-full px-3 py-2 border rounded-lg"
-                  >
-                    <option value="">Select violation</option>
-                    <option>Noise complaint after hours</option>
-                    <option>Outside food/drinks</option>
-                    <option>Unauthorized cooking equipment</option>
-                    <option>Smoking in non-smoking area</option>
-                    <option>Pets not allowed</option>
-                    <option>Diving off wharf</option>
-                    <option>Other violation</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-gray-700 font-medium mb-1">Description *</label>
-                  <textarea 
-                    value={houseRuleEntry.description}
-                    onChange={(e) => setHouseRuleEntry({...houseRuleEntry, description: e.target.value})}
-                    rows="3"
-                    className="w-full px-3 py-2 border rounded-lg"
-                    placeholder="Describe the incident..."
-                  />
-                </div>
-                <div>
-                  <label className="block text-gray-700 font-medium mb-1">Action Taken</label>
-                  <textarea 
-                    value={houseRuleEntry.actionTaken}
-                    onChange={(e) => setHouseRuleEntry({...houseRuleEntry, actionTaken: e.target.value})}
-                    rows="2"
-                    className="w-full px-3 py-2 border rounded-lg"
-                    placeholder="Warning issued, fine imposed, etc."
-                  />
-                </div>
-                <div className="flex gap-3 pt-4">
-                  <button 
-                    onClick={handleAddHouseRule}
-                    disabled={!houseRuleEntry.guestName || !houseRuleEntry.ruleViolated || !houseRuleEntry.description}
-                    className="flex-1 py-2 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg font-semibold disabled:opacity-50"
-                  >
-                    Log Violation
-                  </button>
-                  <button 
-                    onClick={() => setShowHouseRulesModal(false)}
-                    className="flex-1 py-2 border border-gray-300 rounded-lg font-semibold"
-                  >
-                    Cancel
-                  </button>
-                </div>
+              <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+                <p className="font-medium">{selectedGuest.name}</p>
+                <p className="text-sm text-gray-600">Room: {selectedGuest.room}</p>
+                <p className="text-lg font-bold text-primary-600 mt-2">Total Bill: ₱{selectedGuest.bill?.toLocaleString() || 0}</p>
               </div>
-              <div className="mt-6 border-t pt-4">
-                <h3 className="font-bold text-gray-800 mb-4">Recent Logs</h3>
-                <div className="max-h-60 overflow-y-auto space-y-3">
-                  {dashboardData.houseRulesLogs.map(log => (
-                    <div key={log.id} className="p-3 border rounded bg-gray-50 text-sm">
-                      <p className="font-medium text-gray-800">{log.action === 'house_rule_violation' ? 'Rule Violation' : 'System Action'}</p>
-                      <p className="text-gray-600 mt-1">{log.description}</p>
-                      <p className="text-xs text-gray-400 mt-2">
-                        {log.user ? `${log.user.first_name} ${log.user.last_name}` : 'System'} • {new Date(log.created_at).toLocaleString()}
-                      </p>
-                    </div>
-                  ))}
-                  {dashboardData.houseRulesLogs.length === 0 && (
-                    <p className="text-gray-500 text-center text-sm">No activity logs found.</p>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
-      {/* Charge to Room Modal */}
-      {showChargeModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full">
-            <div className="border-b p-4 flex justify-between items-center">
-              <h2 className="text-xl font-bold text-gray-800">Charge to Room</h2>
-              <button onClick={() => setShowChargeModal(false)} className="p-2 hover:bg-gray-100 rounded-lg">
-                <X size={20} />
-              </button>
-            </div>
-            <div className="p-6">
               <div className="mb-4">
-                <label className="block text-gray-700 font-medium mb-1">Select Guest</label>
-                <select 
-                  className="w-full px-3 py-2 border rounded-lg"
-                  onChange={(e) => {
-                    const guest = dashboardData.allGuests.find(g => g.id === parseInt(e.target.value))
-                    setSelectedGuest(guest)
-                  }}
-                >
-                  <option value="">Select a guest</option>
-                  {dashboardData.allGuests.filter(g => g.status === 'checked_in').map(guest => (
-                    <option key={guest.id} value={guest.id}>{guest.name} - {guest.room}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="mb-4">
-                <label className="block text-gray-700 font-medium mb-1">Amount (₱)</label>
-                <input 
+                <label className="block text-gray-700 font-medium mb-2">Payment Amount (₱)</label>
+                <input
                   type="number"
                   className="w-full px-3 py-2 border rounded-lg"
-                  value={chargeAmount}
-                  onChange={(e) => setChargeAmount(e.target.value)}
-                  placeholder="e.g. 500"
+                  placeholder="Enter amount"
+                  value={paymentAmount}
+                  onChange={(e) => setPaymentAmount(e.target.value)}
                 />
               </div>
-              <button 
-                onClick={handleChargeToRoom}
-                disabled={!selectedGuest || !chargeAmount}
-                className="w-full py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg font-semibold disabled:opacity-50"
-              >
-                Charge Amount
-              </button>
+
+              <div className="mb-4">
+                <label className="block text-gray-700 font-medium mb-2">Payment Method</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {['cash', 'credit_card', 'gcash'].map(method => (
+                    <button
+                      key={method}
+                      type="button"
+                      onClick={() => setPaymentMethod(method)}
+                      className={`py-2 px-3 rounded-lg border text-sm capitalize ${paymentMethod === method
+                        ? 'bg-primary-600 text-white border-primary-600'
+                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                        }`}
+                    >
+                      {method === 'credit_card' ? 'Card' : method}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {(paymentMethod === 'gcash' || paymentMethod === 'credit_card') && (
+                <div className="mb-4">
+                  <label className="block text-gray-700 font-medium mb-2">Reference Number</label>
+                  <input
+                    type="text"
+                    className="w-full px-3 py-2 border rounded-lg"
+                    placeholder="Enter reference number"
+                    value={paymentReference}
+                    onChange={(e) => setPaymentReference(e.target.value)}
+                  />
+                </div>
+              )}
+
+              <div className="flex gap-3">
+                <button onClick={handleProcessPayment} className="flex-1 py-2 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700">Process Payment</button>
+                <button onClick={() => setShowPaymentModal(false)} className="flex-1 py-2 border border-gray-300 rounded-lg font-semibold hover:bg-gray-50">Cancel</button>
+              </div>
             </div>
           </div>
         </div>
       )}
+
+      {/* Walk-in Modal */}
+      <WalkInModal
+        isOpen={showWalkInModal}
+        onClose={() => setShowWalkInModal(false)}
+        onSave={handleRegisterWalkIn}
+        categories={categoriesList}
+      />
+
+      {/* Reservation Modal */}
+      <ReservationModal
+        isOpen={showReservationModal}
+        onClose={() => setShowReservationModal(false)}
+        onSave={handleSaveReservation}
+        rooms={dashboardData.roomsList}
+      />
 
       {/* Apply Discount Modal */}
       {showDiscountModal && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-lg w-full">
             <div className="border-b p-4 flex justify-between items-center">
-              <h2 className="text-xl font-bold text-gray-800">Request SC/PWD Discount</h2>
+              <h2 className="text-xl font-bold text-neutral-800">Apply SC/PWD Discount Request</h2>
               <button onClick={() => setShowDiscountModal(false)} className="p-2 hover:bg-gray-100 rounded-lg">
                 <X size={20} />
               </button>
             </div>
             <div className="p-6">
               <div className="mb-4">
-                <label className="block text-gray-700 font-medium mb-1">Select Guest</label>
+                <label className="block text-gray-700 font-medium mb-1 text-sm">Select Active Guest</label>
                 <select 
-                  className="w-full px-3 py-2 border rounded-lg"
+                  className="w-full px-3 py-2 border rounded-lg text-sm"
                   onChange={(e) => {
-                    const guest = dashboardData.allGuests.find(g => g.id === parseInt(e.target.value))
+                    const guest = dashboardData.currentGuests.find(g => g.id === parseInt(e.target.value))
                     setSelectedGuest(guest)
                   }}
+                  value={selectedGuest?.id || ''}
                 >
                   <option value="">Select a guest</option>
-                  {dashboardData.allGuests.filter(g => g.status === 'checked_in').map(guest => (
-                    <option key={guest.id} value={guest.id}>{guest.name} - {guest.room}</option>
+                  {dashboardData.currentGuests.map(guest => (
+                    <option key={guest.id} value={guest.id}>{guest.name} - Room {guest.room}</option>
                   ))}
                 </select>
               </div>
               <div className="mb-4">
-                <label className="block text-gray-700 font-medium mb-1">Discount Type</label>
+                <label className="block text-gray-700 font-medium mb-1 text-sm">Discount Type</label>
                 <select 
-                  className="w-full px-3 py-2 border rounded-lg"
+                  className="w-full px-3 py-2 border rounded-lg text-sm"
                   value={discountId}
                   onChange={(e) => setDiscountId(e.target.value)}
                 >
@@ -1700,69 +1030,29 @@ function StaffDashboard() {
                   <option value="2">PWD (20%)</option>
                 </select>
               </div>
-              <button 
-                onClick={handleApplyDiscount}
-                disabled={!selectedGuest || !discountId}
-                className="w-full py-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-lg font-semibold disabled:opacity-50"
-              >
-                Request Manager Approval
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Guest Details Modal */}
-      {showGuestDetailsModal && selectedGuest && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full">
-            <div className="border-b p-4 flex justify-between items-center">
-              <h2 className="text-xl font-bold text-gray-800">Guest Details</h2>
-              <button onClick={() => setShowGuestDetailsModal(false)} className="p-2 hover:bg-gray-100 rounded-lg">
-                <X size={20} />
-              </button>
-            </div>
-            <div className="p-6">
-              <div className="text-center mb-4">
-                <div className="w-20 h-20 bg-gradient-to-br from-amber-500 to-orange-500 rounded-full flex items-center justify-center mx-auto mb-3">
-                  <User size={40} className="text-white" />
-                </div>
-                <h3 className="font-bold text-lg">{selectedGuest.name}</h3>
-                <p className="text-sm text-gray-500">Room: {selectedGuest.room}</p>
+              <div className="mb-4">
+                <label className="block text-gray-700 font-medium mb-1 text-sm">Notes / Reference (Optional)</label>
+                <textarea
+                  className="w-full px-3 py-2 border rounded-lg text-sm"
+                  placeholder="e.g. SC ID No. 12345"
+                  value={discountNotes}
+                  onChange={(e) => setDiscountNotes(e.target.value)}
+                  rows="2"
+                />
               </div>
-              <div className="space-y-2 mb-4">
-                <div className="flex items-center gap-2 text-sm">
-                  <Phone size={14} className="text-gray-400" />
-                  <span>{selectedGuest.phone || 'N/A'}</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <Mail size={14} className="text-gray-400" />
-                  <span>{selectedGuest.email || 'N/A'}</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <CalendarIcon size={14} className="text-gray-400" />
-                  <span>Check-in: {selectedGuest.checkIn || 'N/A'}</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <CalendarIcon size={14} className="text-gray-400" />
-                  <span>Check-out: {selectedGuest.checkOut || 'N/A'}</span>
-                </div>
-              </div>
-              <div className="flex gap-2">
+              <div className="flex gap-3">
                 <button 
-                  onClick={() => {
-                    setShowGuestDetailsModal(false)
-                    handleCheckOut(selectedGuest)
-                  }}
-                  className="flex-1 py-2 bg-yellow-500 text-white rounded-lg font-semibold hover:bg-yellow-600 transition-all"
+                  onClick={handleApplyDiscountRequest}
+                  disabled={!selectedGuest || !discountId}
+                  className="flex-1 py-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-lg font-semibold disabled:opacity-50 text-sm"
                 >
-                  Check Out
+                  Submit Request
                 </button>
                 <button 
-                  onClick={() => setShowGuestDetailsModal(false)}
-                  className="flex-1 py-2 border border-gray-300 rounded-lg font-semibold hover:bg-gray-50 transition-all"
+                  onClick={() => setShowDiscountModal(false)}
+                  className="flex-1 py-2 border border-gray-300 rounded-lg font-semibold hover:bg-gray-50 text-sm"
                 >
-                  Close
+                  Cancel
                 </button>
               </div>
             </div>

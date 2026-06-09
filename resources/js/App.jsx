@@ -19,11 +19,11 @@ import SettingsPage from './pages/SettingsPage'
 function ProtectedRoute({ children, allowedRoles }) {
   const isAuthenticated = localStorage.getItem('user')
   const userRole = localStorage.getItem('userRole')
-  
+
   if (!isAuthenticated) {
     return <Navigate to="/login" />
   }
-  
+
   if (allowedRoles && !allowedRoles.includes(userRole)) {
     return <Navigate to="/" />
   }
@@ -43,7 +43,7 @@ function Navbar() {
       setScrolled(window.scrollY > 50)
     }
     window.addEventListener('scroll', handleScroll)
-    
+
     // Check login status
     const user = localStorage.getItem('user')
     const role = localStorage.getItem('userRole')
@@ -57,7 +57,7 @@ function Navbar() {
         console.error('Error parsing user data', e)
       }
     }
-    
+
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
 
@@ -86,10 +86,10 @@ function Navbar() {
   }
 
   // Don't show navbar on dashboard pages for staff/manager/admin
-  const isDashboardPage = location.pathname.includes('/staff') || 
-                          location.pathname.includes('/manager') || 
-                          location.pathname.includes('/admin')
-  
+  const isDashboardPage = location.pathname.includes('/staff') ||
+    location.pathname.includes('/manager') ||
+    location.pathname.includes('/admin')
+
   if (isDashboardPage) {
     return null
   }
@@ -104,12 +104,11 @@ function Navbar() {
   ]
 
   return (
-    <nav className={`fixed top-0 w-full z-50 transition-all duration-300 ${
-      scrolled ? 'bg-white shadow-lg py-3' : 'bg-white/95 backdrop-blur-md py-4'
-    }`}>
+    <nav className={`fixed top-0 w-full z-50 transition-all duration-300 ${scrolled ? 'bg-white shadow-lg py-3' : 'bg-white/95 backdrop-blur-md py-4'
+      }`}>
       <div className="container mx-auto px-4 md:px-6">
         <div className="flex flex-col md:flex-row justify-between items-center gap-3 md:gap-0">
-          
+
           {/* Logo Section */}
           <Link to="/" className="flex items-center gap-2 cursor-pointer md:absolute md:left-6">
             <div className="w-8 h-8 md:w-10 md:h-10 bg-gradient-to-br from-amber-500 to-orange-600 rounded-xl flex items-center justify-center shadow-lg">
@@ -129,11 +128,10 @@ function Navbar() {
               <Link
                 key={item.path}
                 to={item.path}
-                className={`relative px-3 lg:px-4 py-2 rounded-lg font-medium transition-all duration-300 ${
-                  location.pathname === item.path 
-                    ? 'text-amber-600 bg-amber-50' 
-                    : 'text-gray-600 hover:text-amber-600 hover:bg-amber-50'
-                }`}
+                className={`relative px-3 lg:px-4 py-2 rounded-lg font-medium transition-all duration-300 ${location.pathname === item.path
+                  ? 'text-amber-600 bg-amber-50'
+                  : 'text-gray-600 hover:text-amber-600 hover:bg-amber-50'
+                  }`}
               >
                 {item.label}
                 {location.pathname === item.path && (
@@ -147,13 +145,13 @@ function Navbar() {
           <div className="flex items-center gap-3 md:absolute md:right-6">
             {isLoggedIn ? (
               <div className="flex items-center gap-3">
-                <div className="hidden md:flex items-center gap-2">
+                <Link to="/my-account" className="hidden md:flex items-center gap-2 hover:bg-gray-100 p-2 rounded-lg transition-colors cursor-pointer">
                   <div className="w-8 h-8 bg-gradient-to-br from-amber-500 to-orange-500 rounded-full flex items-center justify-center">
                     <User size={16} className="text-white" />
                   </div>
                   <span className="text-sm font-medium text-gray-700">Hi, {userName}</span>
-                </div>
-                <button 
+                </Link>
+                <button
                   onClick={handleLogout}
                   className="flex items-center gap-2 px-3 py-1.5 bg-red-500 text-white rounded-lg font-medium hover:bg-red-600 transition-all duration-300 text-sm"
                 >
@@ -169,9 +167,9 @@ function Navbar() {
                 </button>
               </Link>
             )}
-            
+
             {/* Mobile Menu Button */}
-            <button 
+            <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               className="md:hidden p-2 rounded-lg hover:bg-gray-100 transition-colors"
             >
@@ -188,11 +186,10 @@ function Navbar() {
                 key={item.path}
                 to={item.path}
                 onClick={() => setMobileMenuOpen(false)}
-                className={`w-full px-4 py-3 rounded-lg font-medium transition-all flex items-center gap-3 ${
-                  location.pathname === item.path 
-                    ? 'text-amber-600 bg-amber-50' 
-                    : 'text-gray-600 hover:text-amber-600 hover:bg-amber-50'
-                }`}
+                className={`w-full px-4 py-3 rounded-lg font-medium transition-all flex items-center gap-3 ${location.pathname === item.path
+                  ? 'text-amber-600 bg-amber-50'
+                  : 'text-gray-600 hover:text-amber-600 hover:bg-amber-50'
+                  }`}
               >
                 <item.icon size={20} />
                 {item.label}
@@ -204,7 +201,7 @@ function Navbar() {
                   <User size={20} />
                   <span>Hi, {userName}</span>
                 </div>
-                <button 
+                <button
                   onClick={handleLogout}
                   className="w-full px-4 py-3 bg-red-500 text-white rounded-lg font-medium flex items-center justify-center gap-2"
                 >
@@ -229,12 +226,12 @@ function Navbar() {
 
 function Footer() {
   const location = useLocation()
-  
+
   // Don't show footer on dashboard pages
-  const isDashboardPage = location.pathname.includes('/staff') || 
-                          location.pathname.includes('/manager') || 
-                          location.pathname.includes('/admin')
-  
+  const isDashboardPage = location.pathname.includes('/staff') ||
+    location.pathname.includes('/manager') ||
+    location.pathname.includes('/admin')
+
   if (isDashboardPage) {
     return null
   }
@@ -249,7 +246,7 @@ function Footer() {
     <footer className="bg-gray-900 text-white py-12 px-4">
       <div className="container mx-auto max-w-6xl">
         <div className="grid md:grid-cols-4 gap-8">
-          
+
           <div>
             <div className="flex items-center gap-2 mb-4">
               <div className="w-10 h-10 bg-gradient-to-br from-amber-500 to-orange-500 rounded-xl flex items-center justify-center">
@@ -330,29 +327,29 @@ function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/my-account" element={<MyAccountPage />} />
-<Route path="/settings" element={<SettingsPage />} />
-          
+          <Route path="/settings" element={<SettingsPage />} />
+
           {/* Staff Dashboard Routes */}
           <Route path="/staff/*" element={
             <ProtectedRoute allowedRoles={['staff']}>
               <StaffDashboard />
             </ProtectedRoute>
           } />
-          
+
           {/* Manager Dashboard Routes */}
           <Route path="/manager/*" element={
             <ProtectedRoute allowedRoles={['manager']}>
               <ManagerDashboard />
             </ProtectedRoute>
           } />
-          
+
           {/* Admin Dashboard Routes */}
           <Route path="/admin/*" element={
             <ProtectedRoute allowedRoles={['admin']}>
               <AdminDashboard />
             </ProtectedRoute>
           } />
-          
+
           {/* Public Routes with Navbar and Footer */}
           <Route path="/*" element={
             <>
